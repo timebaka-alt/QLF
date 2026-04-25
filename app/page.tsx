@@ -17,6 +17,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 import Papa from 'papaparse';
 import { useRef } from 'react';
 
+import { ProjectGroupRow } from '@/components/ProjectGroupRow';
+
 export default function Home() {
   const { users, projects, clients, currentUser, setCurrentUser, addProject, updateProjectStatus, updateProjectDetails, removeProject, assignUser, addUser, removeUser, acceptTask, rejectTask, addClient, updateClient, removeClient, refreshPipelines, notifications, markNotificationRead, markAllNotificationsRead } = useStore();
   
@@ -622,153 +624,29 @@ export default function Home() {
                       </td>
                     </tr>
                   ) : (
-                    projects.filter(p => activeTab === 'internal' ? p.projectType === 'internal' : (p.projectType === 'client' && p.clientId === activeClientId)).map((p) => {
-                      const isTaskPendingForMe = STAGES.some(s => p.assignments[s] === currentUser && p.statuses[s] === 'pending');
-                      return (
-                        <tr key={p.id} className={`hover:bg-slate-800/20 transition-colors group/row ${isTaskPendingForMe ? 'bg-blue-900/10' : ''}`}>
-                          <td className="px-4 py-4 max-w-[250px] border-r border-slate-800/50 relative">
-                             <button
-                                onClick={() => {
-                                  if (confirm('Bạn có chắc chắn muốn xóa dự án này?')) {
-                                    removeProject(p.id);
-                                    toast.success('Đã xóa dự án!');
-                                  }
-                                }}
-                                className="absolute -left-3 top-1/2 -translate-y-1/2 p-2 bg-red-950/80 text-red-400 rounded-full opacity-0 group-hover/row:opacity-100 hover:bg-red-900 hover:text-red-300 transition-all border border-red-900 shadow-xl"
-                                title="Xóa dự án"
-                              >
-                                <X className="w-3 h-3" strokeWidth={3} />
-                              </button>
-                            <div className="text-[10px] text-blue-400 font-mono mb-1 inline-flex p-1 px-2 border border-blue-900/50 bg-blue-950/30 rounded">
-                              #{p.block ? `${p.block}-` : ''}{p.code}
-                            </div>
-                            <div className="font-bold truncate text-slate-50 mt-2">{p.translatedName}</div>
-                            <div className="text-[10px] text-slate-400 italic line-clamp-1 mt-1">{p.originalName}</div>
-                            {p.otherNames && Object.keys(p.otherNames).length > 0 && (
-                               <div className="flex flex-col gap-0.5 mt-1">
-                                  {Object.entries(p.otherNames).map(([lang, name]) => (
-                                      <div key={lang} className="text-[10px] text-slate-300 truncate">
-                                         <span className="text-slate-500 font-bold uppercase tracking-widest text-[8px] mr-1">[{lang}]</span>
-                                         {name}
-                                      </div>
-                                  ))}
-                               </div>
-                            )}
-                            <div 
-                                className="mt-2 flex gap-2 text-[9px] font-bold tracking-widest uppercase flex-wrap cursor-pointer hover:opacity-80 transition-opacity"
-                                onClick={() => setEditingProject(p)}
-                            >
-                              <span className={`px-1.5 py-0.5 rounded border ${p.duration ? 'bg-slate-950 border-slate-800 text-slate-500' : 'bg-red-500/10 border-red-500/30 text-red-400 animate-pulse'}`}>
-                                ⏱ {p.duration ? `${p.duration}P` : 'Cần nhập liệu'}
-                              </span>
-                              <span className={`px-1.5 py-0.5 rounded border ${p.language ? 'bg-slate-950 border-slate-800 text-slate-500' : 'bg-red-500/10 border-red-500/30 text-red-400 animate-pulse'}`}>
-                                🌐 {p.language ? p.language : 'Cần nhập liệu'}
-                              </span>
-                              <span className={`px-1.5 py-0.5 rounded border ${p.timeline ? 'bg-slate-950 border-slate-800 text-amber-500/80' : 'bg-red-500/10 border-red-500/30 text-red-400 animate-pulse'}`}>
-                                📅 {p.timeline ? `DL: ${p.timeline}` : 'Cần nhập liệu'}
-                              </span>
-                            </div>
-                            {p.videoLink && (
-                              <a href={p.videoLink} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-blue-400 underline decoration-2 underline-offset-4 uppercase tracking-tighter mt-3 inline-block hover:text-blue-300">
-                                Xem File RAW
-                              </a>
-                            )}
-                          </td>
-                          <td className="px-4 py-4 border-r border-slate-800/50">
-                            <div className="flex gap-1 flex-wrap w-full">
-                              {STAGES.map(s => (
-                                <div 
-                                  key={s} 
-                                  className={`h-2 flex-1 rounded-sm ${p.statuses[s] === 'done' ? 'bg-emerald-500 shadow-lg shadow-emerald-500/20' : p.statuses[s] === 'pending' || p.statuses[s] === 'in_progress' ? 'bg-amber-500 shadow-lg shadow-amber-500/20' : 'bg-slate-800 border border-slate-700'}`}
-                                  title={getStageLabel(s)}
-                                />
-                              ))}
-                            </div>
-                          </td>
-                          
-                          {STAGES.map((stage) => {
-                            const isAssigned = p.assignments[stage] === currentUser;
-                            const assignedUser = users.find(u => u.id === p.assignments[stage]);
-                            const status = p.statuses[stage];
-                            
-                            return (
-                              <td key={stage} className={`px-4 py-4 text-center border-r border-slate-800/50 relative ${isAssigned && status === 'pending' ? 'bg-blue-950/20' : ''}`}>
-                                {isAssigned && status === 'pending' && (
-                                  <div className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-bl-lg" />
-                                )}
-                                <div className="flex flex-col items-center gap-2 w-full">
-                                  <div className="flex items-center gap-1.5 bg-slate-950/50 px-2 py-1 rounded-full border border-slate-800/80 w-full max-w-[120px] relative justify-center group cursor-pointer hover:bg-slate-900 transition-colors">
-                                    <Select 
-                                      value={p.assignments[stage] || 'unassigned'} 
-                                      onValueChange={(val) => assignUser(p.id, stage, val || 'unassigned')}
-                                    >
-                                      <SelectTrigger className="h-6 w-full text-[10px] bg-transparent border-0 ring-offset-transparent focus:ring-0 p-0 text-slate-300 font-bold uppercase tracking-tighter flex justify-center gap-1 items-center shadow-none data-[placeholder]:text-slate-500">
-                                        <div className="w-4 h-4 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-[7px] text-indigo-300 shrink-0">
-                                          {assignedUser ? assignedUser.name.substring(0, 1).toUpperCase() : '?'}
-                                        </div>
-                                        <span className="truncate max-w-[60px]">{assignedUser?.name || 'CHƯA GIAO'}</span>
-                                      </SelectTrigger>
-                                      <SelectContent className="bg-slate-900 border-slate-800 text-slate-50">
-                                        <SelectItem value="unassigned" className="text-[10px] text-slate-500 font-bold">Chưa giao</SelectItem>
-                                        {users.filter(u => u.roles.includes(stage)).map(u => (
-                                          <SelectItem key={u.id} value={u.id} className="text-[10px] font-bold text-slate-200">
-                                            {u.name} {u.customTitle ? `(${u.customTitle})` : ''}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  
-                                  {getStatusBadge(status, stage)}
-                                  
-                                  <div className="text-[8px] text-slate-500 font-mono font-bold">
-                                    {getStageSLA(p.voiceType, stage)}
-                                  </div>
-                                  
-                                  {status === 'done' && p.files[stage] && (
-                                    <a href={p.files[stage]} target="_blank" rel="noreferrer" className="text-[9px] font-bold text-emerald-400 underline decoration-2 underline-offset-4 uppercase tracking-tighter hover:text-emerald-300 mt-1">
-                                      Xem File
-                                    </a>
-                                  )}
-                                  
-                                  {isAssigned && status === 'pending' && (
-                                    <div className="flex gap-1 mt-2 w-full">
-                                      <button 
-                                        onClick={() => {
-                                          acceptTask(p.id, stage);
-                                          toast.success('Đã nhận nhiệm vụ!');
-                                        }}
-                                        className="py-1 flex-1 bg-blue-600 text-white text-[9px] font-black uppercase rounded hover:bg-blue-500 transition-colors shadow-lg shadow-blue-500/20"
-                                      >
-                                        Nhận
-                                      </button>
-                                      <button 
-                                        onClick={() => {
-                                          rejectTask(p.id, stage);
-                                          toast.error('Đã từ chối! Hoàn trả về khâu trước.');
-                                        }}
-                                        className="py-1 flex-1 bg-red-600/80 text-white text-[9px] font-black uppercase rounded hover:bg-red-500 transition-colors shadow-lg shadow-red-500/10"
-                                      >
-                                        Từ chối
-                                      </button>
-                                    </div>
-                                  )}
-                                  
-                                  {isAssigned && (status === 'in_progress' || status === 'rejected') && (
-                                    <button 
-                                      onClick={() => setSelectedTask({ projectId: p.id, stage })}
-                                      className="py-1 px-3 bg-white text-black text-[10px] font-black uppercase rounded-lg hover:bg-slate-200 mt-2 transition-colors italic w-full shadow-lg shadow-white/10"
-                                    >
-                                      Nộp bài
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      )
-                    })
+                    Object.values(projects.filter(p => activeTab === 'internal' ? p.projectType === 'internal' : (p.projectType === 'client' && p.clientId === activeClientId)).reduce((acc, p) => {
+                        const baseCode = p.code.includes('_') ? p.code.substring(p.code.indexOf('_') + 1) : p.code;
+                        if (!acc[baseCode]) acc[baseCode] = [];
+                        acc[baseCode].push(p);
+                        return acc;
+                    }, {} as Record<string, typeof projects>)).sort((a,b) => b[0].createdAt - a[0].createdAt).map((group: any) => (
+                        <ProjectGroupRow 
+                          key={group[0].code}
+                          group={group}
+                          STAGES={STAGES}
+                          users={users}
+                          currentUser={currentUser}
+                          removeProject={removeProject}
+                          setEditingProject={setEditingProject}
+                          assignUser={assignUser}
+                          getStageLabel={getStageLabel}
+                          getStatusBadge={getStatusBadge}
+                          getStageSLA={getStageSLA}
+                          setSelectedTask={setSelectedTask}
+                          acceptTask={acceptTask}
+                          rejectTask={rejectTask}
+                        />
+                    ))
                   )}
                 </tbody>
               </table>
@@ -1313,21 +1191,43 @@ export default function Home() {
                 <button 
                   className="px-6 py-2 bg-indigo-600 text-white text-xs font-bold uppercase rounded-lg hover:bg-indigo-500 flex-1" 
                   onClick={() => {
-                    updateProjectDetails(editingProject.id, {
-                        code: editingProject.code,
-                        translatedName: editingProject.translatedName,
-                        originalName: editingProject.originalName,
-                        otherNames: editingProject.otherNames,
-                        duration: Number(editingProject.duration) || editingProject.duration,
-                        language: editingProject.language,
-                        timeline: editingProject.timeline,
-                        videoLink: editingProject.videoLink
-                    });
-                    toast.success('Đã cập nhật dự án!');
+                    const isNewDuplicate = editingProject.id.startsWith('new_duplicate_');
+                    if (isNewDuplicate) {
+                       // Create a clean new project with the same metadata but empty workflow
+                       addProject({
+                          projectType: activeTab,
+                          clientId: activeClientId || undefined,
+                          code: editingProject.code.includes('_') ? editingProject.code.substring(editingProject.code.indexOf('_') + 1) : editingProject.code, // Provide base code, addProject generates prefix
+                          block: editingProject.block,
+                          originalName: editingProject.originalName,
+                          translatedName: editingProject.translatedName,
+                          otherNames: editingProject.otherNames,
+                          duration: Number(editingProject.duration) || editingProject.duration,
+                          language: editingProject.language,
+                          timeline: editingProject.timeline,
+                          voiceType: editingProject.voiceType,
+                          notes: editingProject.notes,
+                          videoLink: editingProject.videoLink,
+                          assignments: editingProject.assignments // Retain assignments? Or empty them? User might want to retain team for a new language, wait, a new language often uses same translation team? Let's retain them so they don't have to re-setup everything.
+                       });
+                       toast.success('Đã tạo phiên bản ngôn ngữ mới!');
+                    } else {
+                       updateProjectDetails(editingProject.id, {
+                           code: editingProject.code,
+                           translatedName: editingProject.translatedName,
+                           originalName: editingProject.originalName,
+                           otherNames: editingProject.otherNames,
+                           duration: Number(editingProject.duration) || editingProject.duration,
+                           language: editingProject.language,
+                           timeline: editingProject.timeline,
+                           videoLink: editingProject.videoLink
+                       });
+                       toast.success('Đã cập nhật dự án!');
+                    }
                     setEditingProject(null);
                   }} 
                 >
-                  Cập Nhật Dự Án
+                  {editingProject.id.startsWith('new_duplicate_') ? 'Tạo Dự Án Mới' : 'Cập Nhật Dự Án'}
                 </button>
               </div>
             </div>
