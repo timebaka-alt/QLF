@@ -399,37 +399,37 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans flex flex-col">
       {/* Header */}
-      <header className="flex justify-between items-end p-8 mb-4 border-b border-slate-800">
+      <header className="flex flex-col xl:flex-row justify-between items-start xl:items-end p-4 md:p-8 mb-4 border-b border-slate-800 gap-6">
         <div>
           <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Trợ Lý Phim</h1>
-          <p className="text-slate-400 font-medium tracking-widest uppercase text-xs mt-2">Quản lý dự án phim cho người lười</p>
+          <p className="text-slate-400 font-medium tracking-widest uppercase text-[10px] md:text-xs mt-2">Quản lý dự án phim cho người lười</p>
         </div>
         
-        <div className="flex gap-4 items-center">
-          <div className="flex bg-slate-900 border border-slate-800 rounded-full p-1 mr-4 ring-1 ring-inset ring-slate-800">
+        <div className="flex flex-wrap gap-4 items-center">
+          <div className="flex flex-wrap bg-slate-900 border border-slate-800 rounded-3xl p-1 md:mr-2 ring-1 ring-inset ring-slate-800">
             <button 
-              className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'internal' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+              className={`px-4 md:px-6 py-2 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'internal' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
               onClick={() => setActiveTab('internal')}
             >
               Nội Bộ Công Ty
             </button>
             <button 
-              className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'client' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+              className={`px-4 md:px-6 py-2 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'client' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
               onClick={() => setActiveTab('client')}
             >
               Của Khách Hàng
             </button>
           </div>
           
-          <button className="px-6 py-2 border-2 border-slate-700 rounded-full text-xs font-bold uppercase tracking-widest hover:border-blue-500 transition-colors" onClick={() => setIsStaffModalOpen(true)}>
+          <button className="px-4 md:px-6 py-2 border-2 border-slate-700 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest hover:border-blue-500 transition-colors whitespace-nowrap" onClick={() => setIsStaffModalOpen(true)}>
             Quản lý nhân sự
           </button>
           
-          <div className="flex bg-slate-900 border border-slate-800 rounded-full p-1 ring-1 ring-inset ring-slate-800">
-            <button className="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-slate-800 hover:text-white transition-colors text-slate-400 flex items-center gap-2" onClick={handleExportCSV}>
+          <div className="flex flex-wrap bg-slate-900 border border-slate-800 rounded-3xl p-1 ring-1 ring-inset ring-slate-800 gap-1">
+            <button className="px-3 md:px-4 py-2 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest hover:bg-slate-800 hover:text-white transition-colors text-slate-400 flex items-center gap-2 whitespace-nowrap" onClick={handleExportCSV}>
               <Download className="w-3 h-3" /> Xuất Sao Lưu
             </button>
-            <button className="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-slate-800 hover:text-white transition-colors text-slate-400 flex items-center gap-2" onClick={() => fileInputRef.current?.click()}>
+            <button className="px-3 md:px-4 py-2 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest hover:bg-slate-800 hover:text-white transition-colors text-slate-400 flex items-center gap-2 whitespace-nowrap" onClick={() => fileInputRef.current?.click()}>
               <Upload className="w-3 h-3" /> Nhập Phục Hồi
             </button>
             <input 
@@ -441,7 +441,7 @@ export default function Home() {
             />
           </div>
 
-          <div className="flex items-center gap-4 ml-4">
+          <div className="flex items-center gap-2 md:gap-4 ml-0 md:ml-2">
             {/* Notification Bell */}
             {currentUser && (
               <div className="relative">
@@ -507,7 +507,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="flex-1 px-8 pb-8 flex flex-col gap-8 w-full max-w-screen-2xl mx-auto">
+      <main className="flex-1 px-4 md:px-8 pb-8 flex flex-col gap-6 md:gap-8 w-full max-w-screen-2xl mx-auto">
         
         {/* Client Sub-tabs */}
         {activeTab === 'client' && (
