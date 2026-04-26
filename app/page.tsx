@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useStore, STAGES, STAGE_LABELS, STAGE_COLORS, Stage, FilmProject } from '@/store/useStore';
+import { useStore, STAGE_COLORS, Stage, FilmProject, INITIAL_STAGES } from '@/store/useStore';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
-import { Bot, Send, User as UserIcon, LinkIcon, Upload, CheckCircle2, CircleDashed, Clock, FileType2, Download, Users, X, Bell } from 'lucide-react';
+import { Bot, Send, User as UserIcon, LinkIcon, Upload, CheckCircle2, CircleDashed, Clock, FileType2, Download, Users, X, Bell, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { GoogleGenAI, Type } from "@google/genai";
 import Papa from 'papaparse';
@@ -40,12 +40,16 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Custom Role Titles
-  const { availableTitles = [], addAvailableTitle, removeAvailableTitle, updateCustomTitle, customStageLabels, updateStageLabel } = useStore();
-  const getStageLabel = (stage: Stage) => customStageLabels[stage] || STAGE_LABELS[stage];
+  const { availableTitles = [], addAvailableTitle, removeAvailableTitle, updateCustomTitle, customStageLabels, updateStageLabel, stages: storeStages, addStage, updateStage, removeStage, moveStage } = useStore();
+  const stagesConfig = storeStages || INITIAL_STAGES;
+  const STAGES = stagesConfig.map(s => s.id);
+  const getStageLabel = (stage: Stage) => customStageLabels[stage] || stagesConfig.find(s => s.id === stage)?.label || stage;
 
   // Staff Modal
   const { updateUser } = useStore();
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [draggedStage, setDraggedStage] = useState<string | null>(null);
+  const [editingStageId, setEditingStageId] = useState<string | null>(null);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffTitleInput, setNewStaffTitleInput] = useState('');
@@ -422,7 +426,7 @@ export default function Home() {
           </div>
           
           <button className="px-4 md:px-6 py-2 border-2 border-slate-700 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest hover:border-blue-500 transition-colors whitespace-nowrap" onClick={() => setIsStaffModalOpen(true)}>
-            Quản lý nhân sự
+            Nhân sự
           </button>
           
           <div className="flex flex-wrap bg-slate-900 border border-slate-800 rounded-3xl p-1 ring-1 ring-inset ring-slate-800 gap-1">
@@ -610,16 +614,104 @@ export default function Home() {
                     <th className="px-4 py-4 font-bold border-r border-slate-800/50">Phim</th>
                     <th className="px-4 py-4 font-bold border-r border-slate-800/50 min-w-[120px]">Tiến độ</th>
                     {STAGES.map((stage) => (
-                      <th key={stage} className="px-4 py-4 font-bold text-center border-r border-slate-800/50 min-w-[150px]">
-                        {getStageLabel(stage)}
+                      <th 
+                        key={stage} 
+                        draggable
+                        onDragStart={(e) => {
+                          setDraggedStage(stage);
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = 'move';
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (draggedStage && draggedStage !== stage) {
+                            moveStage(draggedStage, stage);
+                          }
+                          setDraggedStage(null);
+                        }}
+                        className={`px-4 py-4 font-bold text-center border-r border-slate-800/50 min-w-[150px] transition-colors ${draggedStage === stage ? 'opacity-50 border-blue-500 border-dashed' : ''}`}
+                        onDoubleClick={() => setEditingStageId(stage)}
+                      >
+                        {editingStageId === stage ? (
+                          <Input
+                            autoFocus
+                            defaultValue={getStageLabel(stage)}
+                            className="bg-slate-900 border-indigo-500 h-8 text-xs text-center font-bold uppercase transition-colors focus-visible:ring-blue-500"
+                            onBlur={(e) => {
+                              if (e.target.value.trim() && e.target.value.trim() !== getStageLabel(stage)) {
+                                updateStage(stage, e.target.value.trim());
+                              }
+                              setEditingStageId(null);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                if (e.currentTarget.value.trim() && e.currentTarget.value.trim() !== getStageLabel(stage)) {
+                                  updateStage(stage, e.currentTarget.value.trim());
+                                }
+                                setEditingStageId(null);
+                              } else if (e.key === 'Escape') {
+                                setEditingStageId(null);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center gap-2 cursor-grab active:cursor-grabbing group">
+                            <span>{getStageLabel(stage)}</span>
+                            <button 
+                              className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Xóa cột"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if(confirm('Bạn có chắc muốn xóa cột này?')) {
+                                  removeStage(stage);
+                                }
+                              }}
+                            >
+                              <X className="w-3 h-3" strokeWidth={3} />
+                            </button>
+                          </div>
+                        )}
                       </th>
                     ))}
+                    <th className="px-4 py-4 font-bold border-r border-slate-800/50 w-[150px] min-w-[150px]">
+                      {editingStageId === 'new' ? (
+                        <div className="flex items-center">
+                          <Input
+                            autoFocus
+                            placeholder="Tên cột..."
+                            className="bg-slate-900 border-indigo-500 h-8 text-xs font-bold uppercase"
+                            onBlur={(e) => {
+                              if (e.target.value.trim()) addStage(e.target.value.trim());
+                              setEditingStageId(null);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                if (e.currentTarget.value.trim()) addStage(e.currentTarget.value.trim());
+                                setEditingStageId(null);
+                              } else if (e.key === 'Escape') {
+                                setEditingStageId(null);
+                              }
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <button 
+                          className="w-full h-full text-slate-500 hover:text-indigo-400 uppercase tracking-widest text-[10px] font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform"
+                          onClick={() => setEditingStageId('new')}
+                        >
+                          <Plus className="w-3 h-3" strokeWidth={3} /> Thêm Cột
+                        </button>
+                      )}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
                   {projects.filter(p => activeTab === 'internal' ? p.projectType === 'internal' : (p.projectType === 'client' && p.clientId === activeClientId)).length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-12 text-center text-slate-500 font-medium">
+                      <td colSpan={3 + STAGES.length} className="px-4 py-12 text-center text-slate-500 font-medium">
                         CHƯA CÓ DỰ ÁN NÀO TRONG MỤC NÀY
                       </td>
                     </tr>
@@ -1180,6 +1272,15 @@ export default function Home() {
                   className="bg-slate-950 border-slate-800 text-sm focus-visible:ring-indigo-500"
                 />
               </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-slate-500">Poster URL</Label>
+                <Input 
+                  placeholder="https://..."
+                  value={editingProject.posterUrl || ''}
+                  onChange={(e) => setEditingProject({...editingProject, posterUrl: e.target.value})}
+                  className="bg-slate-950 border-slate-800 text-sm focus-visible:ring-indigo-500"
+                />
+              </div>
 
               <div className="flex justify-end gap-2 mt-4">
                 <button 
@@ -1207,6 +1308,7 @@ export default function Home() {
                           timeline: editingProject.timeline,
                           voiceType: editingProject.voiceType,
                           notes: editingProject.notes,
+                          posterUrl: editingProject.posterUrl,
                           videoLink: editingProject.videoLink,
                           assignments: editingProject.assignments // Retain assignments? Or empty them? User might want to retain team for a new language, wait, a new language often uses same translation team? Let's retain them so they don't have to re-setup everything.
                        });
@@ -1220,6 +1322,7 @@ export default function Home() {
                            duration: Number(editingProject.duration) || editingProject.duration,
                            language: editingProject.language,
                            timeline: editingProject.timeline,
+                           posterUrl: editingProject.posterUrl,
                            videoLink: editingProject.videoLink
                        });
                        toast.success('Đã cập nhật dự án!');

@@ -23,7 +23,7 @@ export function ProjectGroupRow({
   // Ensure the selected ID is still in the group (e.g. if deleted)
   const p = group.find((proj: any) => proj.id === selectedId) || group[0];
   const isTaskPendingForMe = STAGES.some((s: Stage) => p.assignments[s] === currentUser && p.statuses[s] === 'pending');
-  const baseCode = group[0].code.includes('_') ? group[0].code.substring(group[0].code.indexOf('_') + 1) : group[0].code;
+  const baseCode = group[0].code;
 
   return (
     <tr className={`hover:bg-slate-800/20 transition-colors group/row ${isTaskPendingForMe ? 'bg-blue-900/10' : ''}`}>
@@ -41,11 +41,18 @@ export function ProjectGroupRow({
           <X className="w-3 h-3" strokeWidth={3} />
         </button>
         
-        <div className="text-[10px] text-blue-400 font-mono mb-1 inline-flex p-1 px-2 border border-blue-900/50 bg-blue-950/30 rounded">
-          #{p.block ? `${p.block}-` : ''}{baseCode}
+        <div className="flex gap-3 mt-1 items-start">
+          {(p.posterUrl || group[0].posterUrl) && (
+            <img src={p.posterUrl || group[0].posterUrl} alt="Poster" className="w-14 h-20 sm:w-16 sm:h-24 object-cover rounded shadow-md border border-slate-800 shrink-0" referrerPolicy="no-referrer" />
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] text-blue-400 font-mono mb-1 inline-flex p-1 px-2 border border-blue-900/50 bg-blue-950/30 rounded">
+              #{p.block ? `${p.block}-` : ''}{baseCode}
+            </div>
+            <div className="font-bold text-slate-50 mt-1 break-words line-clamp-3 leading-snug" title={p.translatedName}>{p.translatedName}</div>
+            <div className="text-[10px] text-slate-400 italic line-clamp-2 mt-1">{p.originalName}</div>
+          </div>
         </div>
-        <div className="font-bold truncate text-slate-50 mt-2">{p.translatedName}</div>
-        <div className="text-[10px] text-slate-400 italic line-clamp-1 mt-1">{p.originalName}</div>
         
         {p.otherNames && Object.keys(p.otherNames).length > 0 && (
           <div className="flex flex-col gap-0.5 mt-1">
@@ -81,20 +88,20 @@ export function ProjectGroupRow({
           <div className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-2">Phiên bản ngôn ngữ:</div>
           <div className="flex flex-wrap gap-1.5 items-center">
             {group.map((proj: any) => (
-              <div key={proj.id} className="relative group/lang flex items-center">
+              <div key={proj.id} className="relative group/lang flex items-stretch">
                 <button
                   onClick={() => setSelectedId(proj.id)}
-                  className={`px-2 py-1 pr-6 text-[10px] font-bold rounded-l border-y border-l transition-colors ${selectedId === proj.id ? 'bg-blue-600/20 text-blue-400 border-blue-500/50' : 'bg-slate-900 text-slate-500 border-slate-800 hover:bg-slate-800'}`}
+                  className={`px-3 py-1.5 text-[10px] font-bold rounded-l border-y border-l transition-colors ${selectedId === proj.id ? 'bg-blue-600/20 text-blue-400 border-blue-500/50' : 'bg-slate-900 text-slate-500 border-slate-800 hover:bg-slate-800'}`}
                 >
                   {proj.language || 'Gốc'}
                 </button>
-                <div className={`flex border-y border-r rounded-r overflow-hidden h-full ${selectedId === proj.id ? 'border-blue-500/50' : 'border-slate-800'}`}>
+                <div className={`flex flex-col border-y border-r rounded-r overflow-hidden ${selectedId === proj.id ? 'border-blue-500/50' : 'border-slate-800'}`}>
                   <button 
                     onClick={(e) => { e.stopPropagation(); setEditingProject(proj); }}
-                    className={`px-1 flex items-center justify-center transition-colors ${selectedId === proj.id ? 'bg-blue-600/20 hover:bg-blue-600/40 text-blue-400' : 'bg-slate-900 hover:bg-slate-800 text-slate-500'}`}
+                    className={`px-1.5 py-0.5 flex-1 flex items-center justify-center transition-colors ${selectedId === proj.id ? 'bg-blue-600/20 hover:bg-blue-600/40 text-blue-400' : 'bg-slate-900 hover:bg-slate-800 text-slate-500'} ${group.length > 1 ? 'border-b border-inherit' : ''}`}
                     title="Sửa phiên bản này"
                   >
-                    <Edit2 className="w-2 h-2" />
+                    <Edit2 className="w-2.5 h-2.5" />
                   </button>
                   {group.length > 1 && (
                     <button 
@@ -108,7 +115,7 @@ export function ProjectGroupRow({
                           toast.success('Đã xóa phiên bản!');
                         }
                       }}
-                      className={`px-1 flex items-center justify-center transition-colors ${selectedId === proj.id ? 'bg-red-500/10 hover:bg-red-500/30 text-red-400' : 'bg-slate-900 hover:bg-red-900/50 text-slate-500 hover:text-red-400'}`}
+                      className={`px-1.5 py-0.5 flex-1 flex items-center justify-center transition-colors ${selectedId === proj.id ? 'bg-red-500/10 hover:bg-red-500/30 text-red-400' : 'bg-slate-900 hover:bg-red-900/50 text-slate-500 hover:text-red-400'}`}
                       title="Xóa phiên bản này"
                     >
                       <X className="w-2.5 h-2.5" />
@@ -236,6 +243,8 @@ export function ProjectGroupRow({
           </td>
         );
       })}
+      {/* Empty TD column matching the "Add Stage" header */}
+      <td className="px-4 py-4 min-w-[150px] border-r border-slate-800/50 align-top"></td>
     </tr>
   );
 }

@@ -1,18 +1,26 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type Stage = 'cbnl' | 'dich' | 'tm_lt' | 'mix' | 'tp';
-export const STAGES: Stage[] = ['cbnl', 'dich', 'tm_lt', 'mix', 'tp'];
+export type Stage = string;
 
-export const STAGE_LABELS: Record<Stage, string> = {
-  cbnl: 'CBNL',
-  dich: 'Dịch',
-  tm_lt: 'TM/LT',
-  mix: 'Mix',
-  tp: 'Thành Phẩm',
-};
+export interface StageConfig {
+  id: string;
+  label: string;
+}
 
-export const STAGE_COLORS: Record<Stage, string> = {
+export const INITIAL_STAGES: StageConfig[] = [
+  { id: 'cbnl', label: 'CBNL' },
+  { id: 'dich', label: 'Dịch' },
+  { id: 'tm_lt', label: 'TM/LT' },
+  { id: 'mix', label: 'Mix' },
+  { id: 'tp', label: 'Thành Phẩm' },
+];
+
+// export const STAGES: Stage[] = ['cbnl', 'dich', 'tm_lt', 'mix', 'tp'];
+// export const STAGE_LABELS: Record<Stage, string> = ...
+
+
+export const STAGE_COLORS: Record<string, string> = {
   cbnl: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
   dich: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
   tm_lt: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
@@ -61,6 +69,7 @@ export interface FilmProject {
   language?: string;
   timeline?: string;
   voiceType?: VoiceType;
+  posterUrl?: string;
   
   assignments: Partial<Record<Stage, string>>; // userId
   statuses: Record<Stage, TaskStatus>;
@@ -102,6 +111,12 @@ interface AppState {
   customStageLabels: Partial<Record<Stage, string>>;
   updateStageLabel: (stage: Stage, newLabel: string) => void;
   updateCustomTitle: (oldTitle: string, newTitle: string) => void;
+  // added stages management
+  stages: StageConfig[];
+  addStage: (label: string) => void;
+  updateStage: (id: string, label: string) => void;
+  removeStage: (id: string) => void;
+  moveStage: (id: string, targetOrDirection: 'left' | 'right' | string) => void;
 }
 
 const initialUsers: User[] = [
@@ -129,6 +144,7 @@ export const useStore = create<AppState>()(
       availableTitles: [],
       projects: [],
       clients: initialClients,
+      stages: INITIAL_STAGES,
       currentUser: 'u1',
       notifications: [],
       
@@ -143,13 +159,10 @@ export const useStore = create<AppState>()(
       setCurrentUser: (currentUser) => set({ currentUser }),
       
       addProject: (data) => set((state) => {
-        const statuses: Record<Stage, TaskStatus> = {
-          cbnl: 'waiting',
-          dich: 'waiting',
-          tm_lt: 'waiting',
-          mix: 'waiting',
-          tp: 'waiting',
-        };
+        const stagesConfig = state.stages || INITIAL_STAGES;
+        const STAGES = stagesConfig.map(s => s.id);
+        const statuses: Record<Stage, TaskStatus> = {};
+        STAGES.forEach(s => statuses[s] = 'waiting');
         
         // The first stage assigned becomes 'pending'
         const firstStage = STAGES.find(s => data.assignments[s]);
@@ -192,13 +205,15 @@ export const useStore = create<AppState>()(
         };
 
         const newNotifications: Notification[] = [];
+        const stagesConfigForNotif = state.stages || INITIAL_STAGES;
         Object.entries(data.assignments).forEach(([stage, userId]) => {
           if (userId && userId !== 'unassigned') {
+            const stageLabel = stagesConfigForNotif.find(s => s.id === stage)?.label || stage;
             newNotifications.push({
               id: generateId(),
-              userId,
+              userId: userId as string,
               projectId: newProject.id,
-              message: `Bạn được phân công làm ${STAGE_LABELS[stage as Stage]} cho dự án ${newProject.code} - ${newProject.translatedName || newProject.originalName}`,
+              message: `Bạn được phân công làm ${stageLabel} cho dự án ${newProject.code} - ${newProject.translatedName || newProject.originalName}`,
               createdAt: Date.now(),
               read: false
             });
@@ -227,12 +242,14 @@ export const useStore = create<AppState>()(
       })),
       
       updateProjectStatus: (projectId, stage, status, fileUrl) => set((state) => {
+        const stagesConfig = state.stages || INITIAL_STAGES;
+        const STAGES = stagesConfig.map(s => s.id);
         let createdNotifications: Notification[] = [];
         
         const newProjects = state.projects.map(p => {
           if (p.id !== projectId) return p;
           
-          const newStatuses = { ...p.statuses, [stage]: status };
+          const newStatuses: Record<string, TaskStatus> = { ...p.statuses, [stage]: status };
           const newFiles = { ...p.files };
           if (fileUrl) newFiles[stage] = fileUrl;
           
@@ -248,11 +265,13 @@ export const useStore = create<AppState>()(
                }
              }
              if (nextStage && p.assignments[nextStage] && p.assignments[nextStage] !== 'unassigned') {
+               const currentLabel = stagesConfig.find(s => s.id === stage)?.label || stage;
+               const nextLabel = stagesConfig.find(s => s.id === nextStage)?.label || nextStage;
                createdNotifications.push({
                   id: generateId(),
                   userId: p.assignments[nextStage] as string,
                   projectId: p.id,
-                  message: `Công đoạn ${STAGE_LABELS[stage]} đã hoàn thành. Đến lượt bạn làm ${STAGE_LABELS[nextStage]} cho dự án ${p.code} - ${p.translatedName || p.originalName}`,
+                  message: `Công đoạn ${currentLabel} đã hoàn thành. Đến lượt bạn làm ${nextLabel} cho dự án ${p.code} - ${p.translatedName || p.originalName}`,
                   createdAt: Date.now(),
                   read: false
                });
@@ -291,6 +310,8 @@ export const useStore = create<AppState>()(
       }),
       
       assignUser: (projectId, stage, userId) => set((state) => {
+        const stagesConfig = state.stages || INITIAL_STAGES;
+        const STAGES = stagesConfig.map(s => s.id);
         return {
           projects: state.projects.map(p => {
             if (p.id !== projectId) return p;
@@ -302,7 +323,7 @@ export const useStore = create<AppState>()(
               newAssignments[stage] = userId;
             }
             
-            const newStatuses = { ...p.statuses };
+            const newStatuses: Record<string, TaskStatus> = { ...p.statuses };
             // Reset to waiting if unassigned and not done
             if (userId === 'unassigned' && newStatuses[stage] !== 'done') {
               newStatuses[stage] = 'waiting';
@@ -395,15 +416,18 @@ export const useStore = create<AppState>()(
         return {
           projects: state.projects.map(p => {
             if (p.id !== projectId) return p;
+            const newStatuses: Record<string, TaskStatus> = { ...p.statuses, [stage]: 'in_progress' };
             return {
               ...p,
-              statuses: { ...p.statuses, [stage]: 'in_progress' }
+              statuses: newStatuses
             };
           })
         };
       }),
 
       rejectTask: (projectId, stage) => set((state) => {
+        const stagesConfig = state.stages || INITIAL_STAGES;
+        const STAGES = stagesConfig.map(s => s.id);
         return {
           projects: state.projects.map(p => {
             if (p.id !== projectId) return p;
@@ -419,7 +443,7 @@ export const useStore = create<AppState>()(
               }
             }
             
-            const newStatuses = { ...p.statuses, [stage]: 'waiting' };
+            const newStatuses: Record<string, TaskStatus> = { ...p.statuses, [stage]: 'waiting' };
             if (prevStage) {
               newStatuses[prevStage] = 'rejected';
             }
@@ -461,9 +485,11 @@ export const useStore = create<AppState>()(
       }),
 
       refreshPipelines: () => set(state => {
+        const stagesConfig = state.stages || INITIAL_STAGES;
+        const STAGES = stagesConfig.map(s => s.id);
         return {
           projects: state.projects.map(p => {
-            const newStatuses = { ...p.statuses };
+            const newStatuses: Record<string, TaskStatus> = { ...p.statuses };
             let firstViableFound = false;
             for (const s of STAGES) {
               if (p.assignments[s] && newStatuses[s] !== 'done') {
@@ -495,6 +521,33 @@ export const useStore = create<AppState>()(
           return { ...u, customTitle: titles.join(', ') };
         });
         return { availableTitles: newAvailableTitles, users: newUsers };
+      }),
+      addStage: (label) => set(state => ({
+        stages: [...(state.stages || INITIAL_STAGES), { id: `stage_${Date.now()}`, label }]
+      })),
+      updateStage: (id, label) => set(state => ({
+        stages: (state.stages || INITIAL_STAGES).map(s => s.id === id ? { ...s, label } : s)
+      })),
+      removeStage: (id) => set(state => ({
+        stages: (state.stages || INITIAL_STAGES).filter(s => s.id !== id)
+      })),
+      moveStage: (id, targetOrDirection) => set(state => {
+        const stages = [...(state.stages || INITIAL_STAGES)];
+        const idx = stages.findIndex(s => s.id === id);
+        if (idx === -1) return state;
+        
+        if (targetOrDirection === 'left' && idx > 0) {
+          [stages[idx - 1], stages[idx]] = [stages[idx], stages[idx - 1]];
+        } else if (targetOrDirection === 'right' && idx < stages.length - 1) {
+          [stages[idx + 1], stages[idx]] = [stages[idx], stages[idx + 1]];
+        } else if (targetOrDirection !== 'left' && targetOrDirection !== 'right') {
+          const targetIdx = stages.findIndex(s => s.id === targetOrDirection);
+          if (targetIdx !== -1 && targetIdx !== idx) {
+            const item = stages.splice(idx, 1)[0];
+            stages.splice(targetIdx, 0, item);
+          }
+        }
+        return { stages };
       }),
     }),
     {
