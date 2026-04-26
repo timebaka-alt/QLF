@@ -1273,7 +1273,64 @@ export default function Home() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-slate-500">Poster URL</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px] font-bold uppercase text-slate-500">Poster URL</Label>
+                  <label className="cursor-pointer text-[10px] bg-slate-900 border border-slate-700 text-blue-400 hover:text-blue-300 hover:bg-slate-800 px-2 py-1 rounded flex items-center gap-1 transition-colors">
+                    <Upload className="w-3 h-3" />
+                    Tải ảnh lên
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        
+                        if (!file.type.startsWith('image/')) {
+                          toast.error('Vui lòng chọn file hình ảnh hợp lệ.');
+                          return;
+                        }
+
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const img = new Image();
+                          img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            if (!ctx) return;
+                            
+                            const MAX_WIDTH = 300;
+                            const MAX_HEIGHT = 450;
+                            let width = img.width;
+                            let height = img.height;
+                            
+                            if (width > height) {
+                              if (width > MAX_WIDTH) {
+                                height *= MAX_WIDTH / width;
+                                width = MAX_WIDTH;
+                              }
+                            } else {
+                              if (height > MAX_HEIGHT) {
+                                width *= MAX_HEIGHT / height;
+                                height = MAX_HEIGHT;
+                              }
+                            }
+                            
+                            canvas.width = width;
+                            canvas.height = height;
+                            ctx.drawImage(img, 0, 0, width, height);
+                            
+                            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                            setEditingProject({...editingProject, posterUrl: dataUrl});
+                            toast.success('Đã tải và nén ảnh thành công!');
+                          };
+                          img.src = event.target?.result as string;
+                        };
+                        reader.readAsDataURL(file);
+                      }} 
+                    />
+                  </label>
+                </div>
                 <Input 
                   placeholder="https://..."
                   value={editingProject.posterUrl || ''}
