@@ -27,7 +27,7 @@ export function ProjectGroupRow({
 
   return (
     <tr className={`hover:bg-slate-800/20 transition-colors group/row ${isTaskPendingForMe ? 'bg-blue-900/10' : ''}`}>
-      <td className="px-4 py-4 max-w-[250px] border-r border-slate-800/50 relative align-top">
+      <td className="px-4 py-4 min-w-[250px] max-w-[250px] border-r border-slate-800/50 relative align-top">
         <button
           onClick={() => {
             if (confirm('Bạn có chắc chắn muốn xóa bản ghi này?')) {
@@ -35,7 +35,7 @@ export function ProjectGroupRow({
               toast.success('Đã xóa!');
             }
           }}
-          className="absolute -left-3 top-1/2 -translate-y-1/2 p-2 bg-red-950/80 text-red-400 rounded-full opacity-0 group-hover/row:opacity-100 hover:bg-red-900 hover:text-red-300 transition-all border border-red-900 shadow-xl z-10"
+          className="absolute left-1 md:-left-3 top-1/2 -translate-y-1/2 p-2 bg-red-950/80 text-red-400 rounded-full opacity-100 lg:opacity-0 lg:group-hover/row:opacity-100 hover:bg-red-900 hover:text-red-300 transition-all border border-red-900 shadow-xl z-20"
           title="Xóa dự án"
         >
           <X className="w-3 h-3" strokeWidth={3} />
@@ -98,29 +98,27 @@ export function ProjectGroupRow({
                 <div className={`flex flex-col border-y border-r rounded-r overflow-hidden ${selectedId === proj.id ? 'border-blue-500/50' : 'border-slate-800'}`}>
                   <button 
                     onClick={(e) => { e.stopPropagation(); setEditingProject(proj); }}
-                    className={`px-1.5 py-0.5 flex-1 flex items-center justify-center transition-colors ${selectedId === proj.id ? 'bg-blue-600/20 hover:bg-blue-600/40 text-blue-400' : 'bg-slate-900 hover:bg-slate-800 text-slate-500'} ${group.length > 1 ? 'border-b border-inherit' : ''}`}
+                    className={`px-1.5 py-0.5 flex-1 flex items-center justify-center transition-colors ${selectedId === proj.id ? 'bg-blue-600/20 hover:bg-blue-600/40 text-blue-400' : 'bg-slate-900 hover:bg-slate-800 text-slate-500'} border-b border-inherit`}
                     title="Sửa phiên bản này"
                   >
                     <Edit2 className="w-2.5 h-2.5" />
                   </button>
-                  {group.length > 1 && (
-                    <button 
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        if(confirm(`Xóa phiên bản ngôn ngữ: ${proj.language || 'Gốc'}?`)) {
-                          removeProject(proj.id);
-                          if (selectedId === proj.id) {
-                            setSelectedId(group.find((g: any) => g.id !== proj.id)?.id);
-                          }
-                          toast.success('Đã xóa phiên bản!');
+                  <button 
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      if(confirm(`Xóa phiên bản ngôn ngữ: ${proj.language || 'Gốc'}?`)) {
+                        removeProject(proj.id);
+                        if (selectedId === proj.id) {
+                          setSelectedId(group.find((g: any) => g.id !== proj.id)?.id);
                         }
-                      }}
-                      className={`px-1.5 py-0.5 flex-1 flex items-center justify-center transition-colors ${selectedId === proj.id ? 'bg-red-500/10 hover:bg-red-500/30 text-red-400' : 'bg-slate-900 hover:bg-red-900/50 text-slate-500 hover:text-red-400'}`}
-                      title="Xóa phiên bản này"
-                    >
-                      <X className="w-2.5 h-2.5" />
-                    </button>
-                  )}
+                        toast.success('Đã xóa phiên bản!');
+                      }
+                    }}
+                    className={`px-1.5 py-0.5 flex-1 flex items-center justify-center transition-colors ${selectedId === proj.id ? 'bg-red-500/10 hover:bg-red-500/30 text-red-400' : 'bg-slate-900 hover:bg-red-900/50 text-slate-500 hover:text-red-400'}`}
+                    title="Xóa phiên bản này"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
                 </div>
               </div>
             ))}

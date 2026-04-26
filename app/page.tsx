@@ -611,7 +611,7 @@ export default function Home() {
               <table className="w-full text-sm text-left border-collapse min-w-[800px]">
                 <thead className="bg-slate-950/50 text-[10px] text-slate-500 uppercase tracking-widest border-b-2 border-slate-800">
                   <tr>
-                    <th className="px-4 py-4 font-bold border-r border-slate-800/50">Phim</th>
+                    <th className="px-4 py-4 font-bold border-r border-slate-800/50 min-w-[250px]">Phim</th>
                     <th className="px-4 py-4 font-bold border-r border-slate-800/50 min-w-[120px]">Tiến độ</th>
                     {STAGES.map((stage) => (
                       <th 
