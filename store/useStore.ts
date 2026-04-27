@@ -101,6 +101,7 @@ interface AppState {
   currentUser: string | null; // ID of current user (for mocking auth)
   notifications: Notification[];
   historyEvents: HistoryEvent[];
+  lastAssignedUserIds: Record<string, string>; // stageId -> userId
   
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: (userId: string) => void;
@@ -164,6 +165,7 @@ export const useStore = create<AppState>()(
       currentUser: 'u1',
       notifications: [],
       historyEvents: [],
+      lastAssignedUserIds: {},
       
       markNotificationRead: (id) => set((state) => ({
         notifications: state.notifications.map(n => n.id === id ? { ...n, read: true } : n)
@@ -178,11 +180,46 @@ export const useStore = create<AppState>()(
       addProject: (data) => set((state) => {
         const stagesConfig = state.stages || INITIAL_STAGES;
         const STAGES = stagesConfig.map(s => s.id);
+        const newLastAssignedUserIds = { ...(state.lastAssignedUserIds || {}) };
+        
+        let currentAssignments = { ...(data.assignments || {}) };
+        
+        // Auto assign users for unassigned stages
+        STAGES.forEach(stageId => {
+           if (!currentAssignments[stageId]) {
+              // Exclude admin and leader from auto-assignment by default, unless they are the only ones with the role
+              let capableUsers = state.users.filter(u => u.roles && u.roles.includes(stageId) && !u.isAdmin && !u.isLeader);
+              if (capableUsers.length === 0) {
+                 capableUsers = state.users.filter(u => u.roles && u.roles.includes(stageId) && !u.isAdmin);
+              }
+              if (capableUsers.length === 0) {
+                 capableUsers = state.users.filter(u => u.roles && u.roles.includes(stageId));
+              }
+
+              if (capableUsers.length > 0) {
+                 capableUsers.sort((a,b) => a.id.localeCompare(b.id)); // consistent order
+                 
+                 let nextIndex = 0;
+                 const lastAssignedId = newLastAssignedUserIds[stageId];
+                 if (lastAssignedId) {
+                    const idx = capableUsers.findIndex(u => u.id === lastAssignedId);
+                    if (idx !== -1) {
+                        nextIndex = (idx + 1) % capableUsers.length;
+                    }
+                 }
+                 
+                 const chosenUserId = capableUsers[nextIndex].id;
+                 currentAssignments[stageId] = chosenUserId;
+                 newLastAssignedUserIds[stageId] = chosenUserId;
+              }
+           }
+        });
+
         const statuses: Record<Stage, TaskStatus> = {};
         STAGES.forEach(s => statuses[s] = 'waiting');
         
         // The first stage assigned becomes 'pending'
-        const firstStage = STAGES.find(s => data.assignments[s]);
+        const firstStage = STAGES.find(s => currentAssignments[s]);
         if (firstStage) {
           statuses[firstStage] = 'pending';
         }
@@ -214,6 +251,7 @@ export const useStore = create<AppState>()(
         
         const newProject: FilmProject = {
           ...data,
+          assignments: currentAssignments,
           code: finalCode,
           id: generateId(),
           createdAt: Date.now(),
@@ -223,7 +261,7 @@ export const useStore = create<AppState>()(
 
         const newNotifications: Notification[] = [];
         const stagesConfigForNotif = state.stages || INITIAL_STAGES;
-        Object.entries(data.assignments).forEach(([stage, userId]) => {
+        Object.entries(currentAssignments).forEach(([stage, userId]) => {
           if (userId && userId !== 'unassigned') {
             const stageLabel = stagesConfigForNotif.find(s => s.id === stage)?.label || stage;
             newNotifications.push({
@@ -239,7 +277,8 @@ export const useStore = create<AppState>()(
 
         return { 
           projects: [...state.projects, newProject],
-          notifications: [...state.notifications, ...newNotifications]
+          notifications: [...state.notifications, ...newNotifications],
+          lastAssignedUserIds: newLastAssignedUserIds
         };
       }),
       
