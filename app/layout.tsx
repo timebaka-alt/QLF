@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css'; // Global styles
 import { Toaster } from '@/components/ui/sonner';
+import { AuthProvider } from '@/components/AuthProvider';
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin', 'vietnamese'],
@@ -18,8 +19,10 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
     <html lang="en" className={plusJakartaSans.variable}>
       <body suppressHydrationWarning className="font-sans">
-        {children}
-        <Toaster position="top-right" richColors />
+        <AuthProvider>
+          {children}
+          <Toaster position="top-right" richColors />
+        </AuthProvider>
       </body>
     </html>
   );

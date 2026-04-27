@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin() { 
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    function isAssignedToProject(projectData) {
+      // either is admin or their uid is in userIds array OR they are checking a specific assignment
+      return isAdmin() || (request.auth.uid in projectData.userIds);
+    }
+
+    match /users/{userId} {
+      // Anyone signed in can read user info (to see who is assigned to what)
+      allow read: if isSignedIn();
+      // Only admins can create/update users, or the user can update their own non-admin profile (not implemented yet, keep it admin only or owner only for basic things)
+      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == userId && !("isAdmin" in request.resource.data.diff(resource.data).affectedKeys()));
+    }
+
+    match /clients/{clientId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /stages/{stageId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn(); // System/Users can create but ideally Cloud Functions. Let's allow users to create them for others securely.
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /projects/{projectId} {
+      allow read: if isSignedIn() && isAssignedToProject(resource.data);
+      allow create: if isAdmin();
+      allow delete: if isAdmin();
+      // Users can only update their own stage status/file if not admin. Admins can update everything.
+      allow update: if isSignedIn() && (
+        isAdmin() || 
+        (isAssignedToProject(resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasAny(['statuses', 'files', 'updatedAt']))
+      );
+    }
+  }
+}

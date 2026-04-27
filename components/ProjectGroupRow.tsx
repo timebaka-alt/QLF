@@ -9,6 +9,7 @@ export function ProjectGroupRow({
   STAGES, 
   users, 
   currentUser, 
+  appUser, 
   removeProject, 
   setEditingProject, 
   assignUser, 
@@ -28,18 +29,20 @@ export function ProjectGroupRow({
   return (
     <tr className={`hover:bg-slate-800/20 transition-colors group/row ${isTaskPendingForMe ? 'bg-blue-900/10' : ''}`}>
       <td className="px-4 py-4 min-w-[250px] max-w-[250px] border-r border-slate-800/50 relative align-top">
-        <button
-          onClick={() => {
-            if (confirm('Bạn có chắc chắn muốn xóa bản ghi này?')) {
-              removeProject(p.id);
-              toast.success('Đã xóa!');
-            }
-          }}
-          className="absolute left-1 md:-left-3 top-1/2 -translate-y-1/2 p-2 bg-red-950/80 text-red-400 rounded-full opacity-100 lg:opacity-0 lg:group-hover/row:opacity-100 hover:bg-red-900 hover:text-red-300 transition-all border border-red-900 shadow-xl z-20"
-          title="Xóa dự án"
-        >
-          <X className="w-3 h-3" strokeWidth={3} />
-        </button>
+        {(appUser?.isAdmin || appUser?.isLeader) && (
+          <button
+            onClick={() => {
+              if (confirm('Bạn có chắc chắn muốn xóa bản ghi này?')) {
+                removeProject(p.id);
+                toast.success('Đã xóa!');
+              }
+            }}
+            className="absolute left-1 md:-left-3 top-1/2 -translate-y-1/2 p-2 bg-red-950/80 text-red-400 rounded-full opacity-100 lg:opacity-0 lg:group-hover/row:opacity-100 hover:bg-red-900 hover:text-red-300 transition-all border border-red-900 shadow-xl z-20"
+            title="Xóa dự án"
+          >
+            <X className="w-3 h-3" strokeWidth={3} />
+          </button>
+        )}
         
         <div className="flex gap-3 mt-1 items-start">
           {(p.posterUrl || group[0].posterUrl) && (
@@ -66,9 +69,9 @@ export function ProjectGroupRow({
         )}
 
         <div 
-          className="mt-2 flex gap-2 text-[9px] font-bold tracking-widest uppercase flex-wrap cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => setEditingProject(p)}
-          title="Sửa thông tin"
+          className={`mt-2 flex gap-2 text-[9px] font-bold tracking-widest uppercase flex-wrap ${(appUser?.isAdmin || appUser?.isLeader) ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+          onClick={() => { if (appUser?.isAdmin || appUser?.isLeader) setEditingProject(p); }}
+          title={(appUser?.isAdmin || appUser?.isLeader) ? "Sửa thông tin" : ""}
         >
           <span className={`px-1.5 py-0.5 rounded border ${p.duration ? 'bg-slate-950 border-slate-800 text-slate-500' : 'bg-red-500/10 border-red-500/30 text-red-400 animate-pulse'}`}>
             ⏱ {p.duration ? `${p.duration}P` : 'Cần nhập liệu'}
@@ -95,46 +98,50 @@ export function ProjectGroupRow({
                 >
                   {proj.language || 'Gốc'}
                 </button>
-                <div className={`flex flex-col border-y border-r rounded-r overflow-hidden ${selectedId === proj.id ? 'border-blue-500/50' : 'border-slate-800'}`}>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setEditingProject(proj); }}
-                    className={`px-1.5 py-0.5 flex-1 flex items-center justify-center transition-colors ${selectedId === proj.id ? 'bg-blue-600/20 hover:bg-blue-600/40 text-blue-400' : 'bg-slate-900 hover:bg-slate-800 text-slate-500'} border-b border-inherit`}
-                    title="Sửa phiên bản này"
-                  >
-                    <Edit2 className="w-2.5 h-2.5" />
-                  </button>
-                  <button 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      if(confirm(`Xóa phiên bản ngôn ngữ: ${proj.language || 'Gốc'}?`)) {
-                        removeProject(proj.id);
-                        if (selectedId === proj.id) {
-                          setSelectedId(group.find((g: any) => g.id !== proj.id)?.id);
+                {(appUser?.isAdmin || appUser?.isLeader) && (
+                  <div className={`flex flex-col border-y border-r rounded-r overflow-hidden ${selectedId === proj.id ? 'border-blue-500/50' : 'border-slate-800'}`}>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setEditingProject(proj); }}
+                      className={`px-1.5 py-0.5 flex-1 flex items-center justify-center transition-colors ${selectedId === proj.id ? 'bg-blue-600/20 hover:bg-blue-600/40 text-blue-400' : 'bg-slate-900 hover:bg-slate-800 text-slate-500'} border-b border-inherit`}
+                      title="Sửa phiên bản này"
+                    >
+                      <Edit2 className="w-2.5 h-2.5" />
+                    </button>
+                    <button 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        if(confirm(`Xóa phiên bản ngôn ngữ: ${proj.language || 'Gốc'}?`)) {
+                          removeProject(proj.id);
+                          if (selectedId === proj.id) {
+                            setSelectedId(group.find((g: any) => g.id !== proj.id)?.id);
+                          }
+                          toast.success('Đã xóa phiên bản!');
                         }
-                        toast.success('Đã xóa phiên bản!');
-                      }
-                    }}
-                    className={`px-1.5 py-0.5 flex-1 flex items-center justify-center transition-colors ${selectedId === proj.id ? 'bg-red-500/10 hover:bg-red-500/30 text-red-400' : 'bg-slate-900 hover:bg-red-900/50 text-slate-500 hover:text-red-400'}`}
-                    title="Xóa phiên bản này"
-                  >
-                    <X className="w-2.5 h-2.5" />
-                  </button>
-                </div>
+                      }}
+                      className={`px-1.5 py-0.5 flex-1 flex items-center justify-center transition-colors ${selectedId === proj.id ? 'bg-red-500/10 hover:bg-red-500/30 text-red-400' : 'bg-slate-900 hover:bg-red-900/50 text-slate-500 hover:text-red-400'}`}
+                      title="Xóa phiên bản này"
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
-            <button
-               onClick={() => {
-                 setEditingProject({
-                    ...p,
-                    language: '', // clear language so user enters new one
-                    id: `new_duplicate_${Date.now()}`
-                 });
-               }}
-               className="p-1 h-6 px-2 rounded border border-slate-700 border-dashed text-slate-500 hover:text-slate-300 hover:bg-slate-800 flex items-center justify-center font-bold text-[10px] transition-colors"
-               title="Thêm bản dịch ngôn ngữ khác cho dự án này"
-            >
-               + Thêm
-            </button>
+            {(appUser?.isAdmin || appUser?.isLeader) && (
+              <button
+                 onClick={() => {
+                   setEditingProject({
+                      ...p,
+                      language: '', // clear language so user enters new one
+                      id: `new_duplicate_${Date.now()}`
+                   });
+                 }}
+                 className="p-1 h-6 px-2 rounded border border-slate-700 border-dashed text-slate-500 hover:text-slate-300 hover:bg-slate-800 flex items-center justify-center font-bold text-[10px] transition-colors"
+                 title="Thêm bản dịch ngôn ngữ khác cho dự án này"
+              >
+                 + Thêm
+              </button>
+            )}
           </div>
         </div>
       </td>
@@ -175,6 +182,7 @@ export function ProjectGroupRow({
                 <Select 
                   value={p.assignments[stage] || 'unassigned'} 
                   onValueChange={(val) => assignUser(p.id, stage, val || 'unassigned')}
+                  disabled={!(appUser?.isAdmin || appUser?.isLeader)}
                 >
                   <SelectTrigger className="h-6 w-full text-[10px] bg-transparent border-0 ring-offset-transparent focus:ring-0 p-0 text-slate-300 font-bold uppercase tracking-tighter flex justify-center gap-1 items-center shadow-none data-[placeholder]:text-slate-500">
                     <div className="w-4 h-4 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-[7px] text-indigo-300 shrink-0">

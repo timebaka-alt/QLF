@@ -39,9 +39,22 @@ export interface Notification {
 
 export type TaskStatus = 'waiting' | 'pending' | 'in_progress' | 'done' | 'rejected';
 
+export interface HistoryEvent {
+  id: string;
+  userId: string;
+  projectId: string;
+  stage: string;
+  action: 'accept' | 'reject';
+  timestamp: number;
+}
+
 export interface User {
   id: string;
   name: string;
+  email?: string;
+  password?: string;
+  isAdmin?: boolean;
+  isLeader?: boolean;
   customTitle?: string;
   roles: Stage[];
 }
@@ -76,6 +89,8 @@ export interface FilmProject {
   files: Partial<Record<Stage, string>>;
   notes: string;
   createdAt: number;
+  updatedAt?: number;
+  userIds?: string[];
 }
 
 interface AppState {
@@ -85,6 +100,7 @@ interface AppState {
   clients: Client[];
   currentUser: string | null; // ID of current user (for mocking auth)
   notifications: Notification[];
+  historyEvents: HistoryEvent[];
   
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: (userId: string) => void;
@@ -96,7 +112,7 @@ interface AppState {
   updateProjectStatus: (projectId: string, stage: Stage, status: TaskStatus, fileUrl?: string) => void;
   assignUser: (projectId: string, stage: Stage, userId: string) => void;
   addFile: (projectId: string, stage: Stage, fileUrl: string) => void;
-  addUser: (user: Omit<User, 'id'>) => void;
+  addUser: (user: User) => void;
   updateUser: (id: string, user: Partial<Omit<User, 'id'>>) => void;
   removeUser: (userId: string) => void;
   addAvailableTitle: (title: string) => void;
@@ -120,14 +136,14 @@ interface AppState {
 }
 
 const initialUsers: User[] = [
-  { id: 'u1', name: 'Trưởng nhóm / General', roles: ['cbnl', 'dich', 'tm_lt', 'mix', 'tp'] },
-  { id: 'u2', name: 'Hải Yến ES', roles: ['dich'] },
-  { id: 'u3', name: 'An NV', roles: ['dich', 'cbnl'] },
-  { id: 'u4', name: 'Phát Cbi Voice', roles: ['tm_lt', 'mix'] },
-  { id: 'u5', name: 'Gia Hân Mix', roles: ['mix', 'tp'] },
-  { id: 'u6', name: 'Hồng Anh Beta', roles: ['cbnl'] },
-  { id: 'u7', name: 'Châu NV', roles: ['dich'] },
-  { id: 'u8', name: 'Toàn Cbi Voice', roles: ['tm_lt'] },
+  { 
+    id: 'u1', 
+    name: 'Quản trị viên', 
+    email: 'dammevietdt@gmail.com', 
+    password: 'Congtoan1910!', 
+    isAdmin: true,
+    roles: ['cbnl', 'dich', 'tm_lt', 'mix', 'tp']
+  }
 ];
 
 const initialClients: Client[] = [
@@ -147,6 +163,7 @@ export const useStore = create<AppState>()(
       stages: INITIAL_STAGES,
       currentUser: 'u1',
       notifications: [],
+      historyEvents: [],
       
       markNotificationRead: (id) => set((state) => ({
         notifications: state.notifications.map(n => n.id === id ? { ...n, read: true } : n)
@@ -227,19 +244,21 @@ export const useStore = create<AppState>()(
       }),
       
       updateProjectDetails: (projectId, updates) => set((state) => {
-        return {
-          projects: state.projects.map(p => {
-            if (p.id === projectId) {
-              return { ...p, ...updates };
-            }
-            return p;
-          })
-        };
+        const project = state.projects.find(p => p.id === projectId);
+        if (project) {
+          const updated = { ...project, ...updates, updatedAt: Date.now() };
+          return {
+            projects: state.projects.map(p => p.id === projectId ? updated : p)
+          };
+        }
+        return state;
       }),
       
-      removeProject: (projectId) => set((state) => ({
-        projects: state.projects.filter(p => p.id !== projectId)
-      })),
+      removeProject: (projectId) => set((state) => {
+        return {
+          projects: state.projects.filter(p => p.id !== projectId)
+        };
+      }),
       
       updateProjectStatus: (projectId, stage, status, fileUrl) => set((state) => {
         const stagesConfig = state.stages || INITIAL_STAGES;
@@ -300,7 +319,9 @@ export const useStore = create<AppState>()(
             }
           }
           
-          return { ...p, statuses: newStatuses, files: newFiles };
+          const updatedProject = { ...p, statuses: newStatuses, files: newFiles };
+
+          return updatedProject;
         });
 
         return {
@@ -379,11 +400,14 @@ export const useStore = create<AppState>()(
               }
             }
 
-            return {
+            const updatedProject = {
               ...p,
               assignments: newAssignments,
-              statuses: newStatuses
+              statuses: newStatuses,
+              userIds: Object.values(newAssignments).filter(Boolean) as string[]
             };
+
+            return updatedProject;
           })
         };
       }),
@@ -401,19 +425,33 @@ export const useStore = create<AppState>()(
       }),
       
       addUser: (user) => set((state) => ({
-        users: [...state.users, { ...user, id: `u${Date.now()}` }]
+        users: [...state.users, user]
       })),
-
-      updateUser: (id, userUpdates) => set((state) => ({
-        users: state.users.map(u => u.id === id ? { ...u, ...userUpdates } : u)
-      })),
+      
+      updateUser: (id, userUpdates) => set((state) => {
+        return {
+          users: state.users.map(u => u.id === id ? { ...u, ...userUpdates } : u)
+        };
+      }),
       
       removeUser: (userId) => set((state) => ({
         users: state.users.filter(u => u.id !== userId)
       })),
 
       acceptTask: (projectId, stage) => set((state) => {
+        const project = state.projects.find(p => p.id === projectId);
+        const userId = project?.assignments[stage];
+        const newEvent: HistoryEvent | null = userId ? {
+          id: generateId(),
+          userId,
+          projectId,
+          stage,
+          action: 'accept',
+          timestamp: Date.now()
+        } : null;
+
         return {
+          historyEvents: newEvent ? [...(state.historyEvents || []), newEvent] : state.historyEvents,
           projects: state.projects.map(p => {
             if (p.id !== projectId) return p;
             const newStatuses: Record<string, TaskStatus> = { ...p.statuses, [stage]: 'in_progress' };
@@ -428,7 +466,19 @@ export const useStore = create<AppState>()(
       rejectTask: (projectId, stage) => set((state) => {
         const stagesConfig = state.stages || INITIAL_STAGES;
         const STAGES = stagesConfig.map(s => s.id);
+        const project = state.projects.find(p => p.id === projectId);
+        const userId = project?.assignments[stage];
+        const newEvent: HistoryEvent | null = userId ? {
+          id: generateId(),
+          userId,
+          projectId,
+          stage,
+          action: 'reject',
+          timestamp: Date.now()
+        } : null;
+
         return {
+          historyEvents: newEvent ? [...(state.historyEvents || []), newEvent] : state.historyEvents,
           projects: state.projects.map(p => {
             if (p.id !== projectId) return p;
             
@@ -551,7 +601,7 @@ export const useStore = create<AppState>()(
       }),
     }),
     {
-      name: 'post-production-storage',
+      name: 'post-production-storage-v2',
     }
   )
 );

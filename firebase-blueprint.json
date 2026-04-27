@@ -1,0 +1,117 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Information about team members, including their roles and optional admin access.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "customTitle": { "type": "string" },
+        "roles": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "isAdmin": { "type": "boolean" },
+        "avatarUrl": { "type": "string" }
+      },
+      "required": ["email", "name", "roles"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "Holds the prefix mapping and names of clients.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "prefix": { "type": "string" }
+      },
+      "required": ["name", "prefix"]
+    },
+    "Project": {
+      "title": "Film Project",
+      "description": "Represents a single localization project, either client or internal.",
+      "type": "object",
+      "properties": {
+        "projectType": { "type": "string", "enum": ["client", "internal"] },
+        "clientId": { "type": "string" },
+        "block": { "type": "string" },
+        "code": { "type": "string" },
+        "originalName": { "type": "string" },
+        "translatedName": { "type": "string" },
+        "otherNames": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "videoLink": { "type": "string" },
+        "finalLink": { "type": "string" },
+        "duration": { "type": ["number", "string"] },
+        "language": { "type": "string" },
+        "timeline": { "type": "string" },
+        "voiceType": { "type": "string", "enum": ["TM_NGUOI", "TM_AI", "LT_AI"] },
+        "posterUrl": { "type": "string" },
+        "assignments": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "statuses": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["projectType", "code", "originalName", "translatedName", "assignments", "statuses", "createdAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Stores user notifications for assignment and stage completions.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "message": { "type": "string" },
+        "projectId": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["userId", "message", "projectId", "createdAt", "read"]
+    },
+    "StageConfig": {
+      "title": "Stage Configuration",
+      "description": "Defines the columns/stages pipeline for projects.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["id", "label", "order"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores all users who have logged in and been approved or set up by an admin."
+    },
+    "/clients/{clientId}": {
+      "schema": { "$ref": "#/entities/Client" },
+      "description": "Stores all clients."
+    },
+    "/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/Project" },
+      "description": "Stores project details."
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/Notification" },
+      "description": "Stores all notifications, referenced by user queries."
+    },
+    "/stages/{stageId}": {
+      "schema": { "$ref": "#/entities/StageConfig" },
+      "description": "Stores the dynamic stages."
+    }
+  }
+}

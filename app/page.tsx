@@ -11,16 +11,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
-import { Bot, Send, User as UserIcon, LinkIcon, Upload, CheckCircle2, CircleDashed, Clock, FileType2, Download, Users, X, Bell, Plus } from 'lucide-react';
+import { Bot, Send, User as UserIcon, LinkIcon, Upload, CheckCircle2, CircleDashed, Clock, FileType2, Download, Users, X, Bell, Plus, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { GoogleGenAI, Type } from "@google/genai";
 import Papa from 'papaparse';
 import { useRef } from 'react';
 
+import { useAuth } from '@/components/AuthProvider';
 import { ProjectGroupRow } from '@/components/ProjectGroupRow';
 
 export default function Home() {
-  const { users, projects, clients, currentUser, setCurrentUser, addProject, updateProjectStatus, updateProjectDetails, removeProject, assignUser, addUser, removeUser, acceptTask, rejectTask, addClient, updateClient, removeClient, refreshPipelines, notifications, markNotificationRead, markAllNotificationsRead } = useStore();
+  const { user, appUser, originalAppUser, impersonate, loading, signIn, signOut } = useAuth();
+  const { users, projects, clients, currentUser, setCurrentUser, addProject, updateProjectStatus, updateProjectDetails, removeProject, assignUser, addUser, removeUser, acceptTask, rejectTask, addClient, updateClient, removeClient, refreshPipelines, notifications, markNotificationRead, markAllNotificationsRead, historyEvents = [] } = useStore();
   
   const [chatMessage, setChatMessage] = useState('');
   const [isParsing, setIsParsing] = useState(false);
@@ -48,22 +50,31 @@ export default function Home() {
   // Staff Modal
   const { updateUser } = useStore();
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportSelectedUser, setReportSelectedUser] = useState<string | null>(null);
   const [draggedStage, setDraggedStage] = useState<string | null>(null);
   const [editingStageId, setEditingStageId] = useState<string | null>(null);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [newStaffName, setNewStaffName] = useState('');
+  const [newStaffEmail, setNewStaffEmail] = useState('');
+  const [newStaffPass, setNewStaffPass] = useState('');
+  const [newStaffRoleType, setNewStaffRoleType] = useState<'admin' | 'leader' | 'user'>('user');
   const [newStaffTitleInput, setNewStaffTitleInput] = useState('');
   const [newStaffTitles, setNewStaffTitles] = useState<string[]>([]);
   const [newStaffRoles, setNewStaffRoles] = useState<Stage[]>([]);
   const [editingRoleNode, setEditingRoleNode] = useState<{ type: 'stage'|'custom', id: string, name: string } | null>(null);
   const [isRenamingRoles, setIsRenamingRoles] = useState(false);
 
+  // User Settings Modal
+  const [isUserSettingsOpen, setIsUserSettingsOpen] = useState(false);
+  const [userSettingsPass, setUserSettingsPass] = useState('');
+
   // Edit Project Modal
   const [editingProject, setEditingProject] = useState<FilmProject | null>(null);
   const [newLanguageName, setNewLanguageName] = useState('');
   const [isAddingLanguage, setIsAddingLanguage] = useState(false);
 
-  const currentUserObj = users.find(u => u.id === currentUser);
+  const currentUserObj = appUser;
 
   useEffect(() => {
     if (activeTab === 'client' && !activeClientId && clients.length > 0) {
@@ -400,6 +411,148 @@ export default function Home() {
     });
   };
 
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+  const [adminName, setAdminName] = useState('');
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await signIn(loginEmail, loginPass);
+    } catch (error: any) {
+      toast.error(`Đăng nhập thất bại: ${error.message}`);
+    }
+  };
+
+  const handleCreateInitialAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginEmail || !adminName || !loginPass) {
+      toast.error("Vui lòng điền đầy đủ thông tin");
+      return;
+    }
+    try {
+      const tid = toast.loading("Đang khởi tạo tài khoản quản trị...");
+      const newUserData = {
+        id: `u${Date.now()}`,
+        name: adminName,
+        email: loginEmail,
+        password: loginPass,
+        isAdmin: true,
+        roles: ['cbnl', 'dich', 'tm_lt', 'mix', 'tp']
+      };
+      addUser(newUserData);
+      await signIn(newUserData.email, loginPass);
+      toast.dismiss(tid);
+      toast.success("Khởi tạo quản trị thành công!");
+    } catch(err: any) {
+      toast.error(`Lỗi: ${err.message}`);
+    }
+  };
+
+  if (loading) {
+    return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white font-bold tracking-widest uppercase">Đang tải...</div>;
+  }
+
+  if (appUser === "NO_USERS") {
+    // Bootstrap mode
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-50 font-sans p-4 relative overflow-hidden">
+        <div className="absolute inset-0 bg-blue-500/10 opacity-20 blur-3xl rounded-full w-[150vw] h-[150vw] -top-[50vw] -left-[25vw] pointer-events-none" />
+        
+        <form onSubmit={handleCreateInitialAdmin} className="z-10 max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center">
+          <div className="w-16 h-16 bg-blue-600/20 text-blue-500 rounded-2xl flex items-center justify-center mb-6 border border-blue-500/30">
+            <Bot className="w-8 h-8" />
+          </div>
+          <h1 className="text-3xl font-black tracking-tighter text-center leading-none mb-2">Trợ Lý Phim</h1>
+          <p className="text-slate-400 font-medium text-xs text-center mb-8">Xin chào! Hệ thống chưa có tài khoản nào. Vui lòng tạo tài khoản <strong>Quản Trị</strong> đầu tiên để bắt đầu.</p>
+          
+          <div className="w-full space-y-4 mb-8">
+            <Input 
+              placeholder="Tên quản trị viên..." 
+              value={adminName} onChange={e => setAdminName(e.target.value)} 
+              className="bg-slate-950 border-slate-700 h-12" required 
+            />
+            <Input 
+              type="email" placeholder="Email quản trị..." 
+              value={loginEmail} onChange={e => setLoginEmail(e.target.value)} 
+              className="bg-slate-950 border-slate-700 h-12" required 
+            />
+            <Input 
+              type="password" placeholder="Mật khẩu..." 
+              value={loginPass} onChange={e => setLoginPass(e.target.value)} 
+              className="bg-slate-950 border-slate-700 h-12" required 
+            />
+          </div>
+          
+          <button 
+            type="submit"
+            className="w-full bg-indigo-600 text-white font-bold uppercase tracking-widest text-xs py-4 rounded-xl hover:bg-indigo-500 transition-all shadow-lg flex items-center justify-center"
+          >
+            Khởi tạo Quản Trị Hệ Thống
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  if (!user || !appUser) {
+    if (user && !appUser) {
+      // Logged in but not in users collection
+      return (
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-50 font-sans p-4">
+          <div className="max-w-md w-full bg-slate-900 border border-red-900/30 p-8 rounded-3xl shadow-2xl flex flex-col items-center text-center">
+            <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-2xl flex items-center justify-center mb-6">
+              <X className="w-8 h-8" />
+            </div>
+            <h2 className="text-xl font-bold mb-4 text-red-400">Chưa được cấp quyền</h2>
+            <p className="text-sm text-slate-400 mb-8">Tài khoản <strong className="text-white">{user.email}</strong> chưa được người quản trị cấp quyền truy cập vào hệ thống. Vui lòng liên hệ quản trị viên.</p>
+            
+            <button 
+              onClick={signOut}
+              className="bg-slate-800 text-slate-300 font-bold uppercase tracking-widest text-[10px] px-6 py-3 rounded-xl hover:bg-slate-700 transition-colors"
+            >
+              Đăng xuất
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-50 font-sans p-4 relative overflow-hidden">
+        <div className="absolute inset-0 bg-blue-500/10 opacity-20 blur-3xl rounded-full w-[150vw] h-[150vw] -top-[50vw] -left-[25vw] pointer-events-none" />
+        
+        <form onSubmit={handleLogin} className="z-10 max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center">
+          <div className="w-16 h-16 bg-blue-600/20 text-blue-500 rounded-2xl flex items-center justify-center mb-6 border border-blue-500/30">
+            <Bot className="w-8 h-8" />
+          </div>
+          <h1 className="text-3xl font-black tracking-tighter text-center leading-none mb-2">Trợ Lý Phim</h1>
+          <p className="text-slate-400 font-medium tracking-widest uppercase text-[10px] text-center mb-8">Đăng nhập tài khoản Nhân sự</p>
+          
+          <div className="w-full space-y-4 mb-8">
+            <Input 
+              type="email" placeholder="Email..." 
+              value={loginEmail} onChange={e => setLoginEmail(e.target.value)} 
+              className="bg-slate-950 border-slate-700 h-12 text-sm" required 
+            />
+            <Input 
+              type="password" placeholder="Mật khẩu..." 
+              value={loginPass} onChange={e => setLoginPass(e.target.value)} 
+              className="bg-slate-950 border-slate-700 h-12 text-sm" required 
+            />
+          </div>
+
+          <button 
+            type="submit"
+            className="w-full bg-slate-100 text-slate-900 font-bold uppercase tracking-widest text-xs py-4 rounded-xl hover:bg-white transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg flex items-center justify-center gap-3"
+          >
+            Đăng nhập
+          </button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 font-sans flex flex-col">
       {/* Header */}
@@ -425,10 +578,18 @@ export default function Home() {
             </button>
           </div>
           
-          <button className="px-4 md:px-6 py-2 border-2 border-slate-700 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest hover:border-blue-500 transition-colors whitespace-nowrap" onClick={() => setIsStaffModalOpen(true)}>
-            Nhân sự
-          </button>
-          
+          {appUser?.isAdmin && (
+            <div className="flex gap-2">
+              <button className="px-4 md:px-6 py-2 border-2 border-slate-700 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest hover:border-blue-500 transition-colors whitespace-nowrap" onClick={() => setIsStaffModalOpen(true)}>
+                Nhân sự
+              </button>
+              <button className="px-4 md:px-6 py-2 border-2 border-indigo-700/50 bg-indigo-500/10 text-indigo-300 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest hover:border-indigo-500 transition-colors whitespace-nowrap flex items-center gap-2" onClick={() => setIsReportModalOpen(true)}>
+                <CheckCircle2 className="w-3 h-3" />
+                Báo cáo
+              </button>
+            </div>
+          )}
+
           <div className="flex flex-wrap bg-slate-900 border border-slate-800 rounded-3xl p-1 ring-1 ring-inset ring-slate-800 gap-1">
             <button className="px-3 md:px-4 py-2 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest hover:bg-slate-800 hover:text-white transition-colors text-slate-400 flex items-center gap-2 whitespace-nowrap" onClick={handleExportCSV}>
               <Download className="w-3 h-3" /> Xuất Sao Lưu
@@ -496,17 +657,46 @@ export default function Home() {
               </div>
             )}
 
-            <Select value={currentUser || ''} onValueChange={(val) => { setCurrentUser(val); setIsNotificationsOpen(false); }}>
-              <SelectTrigger className="w-[180px] bg-slate-900 border-2 border-slate-700 text-slate-50 rounded-full text-xs font-bold tracking-widest uppercase">
-                <UserIcon className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Chọn nhân viên" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-slate-800 text-slate-50">
-                {users.map(u => (
-                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-3 bg-slate-900 border-2 border-slate-700 px-4 py-2 rounded-full relative">
+              <div className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-xs uppercase overflow-hidden">
+                {user?.photoURL ? <img src={user.photoURL} alt="" /> : <UserIcon className="w-3 h-3" />}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-200 leading-none flex items-center gap-2">
+                  {originalAppUser?.isAdmin && originalAppUser.id !== appUser?.id && (
+                     <button onClick={() => impersonate(null)} className="text-[8px] bg-indigo-500/20 text-indigo-400 px-1 py-0.5 rounded hover:bg-indigo-500 hover:text-white transition-colors">THOÁT XEM</button>
+                  )}
+                  {appUser?.name}
+                </span>
+                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{appUser?.isAdmin ? 'Quản trị' : (appUser?.isLeader ? 'Leader' : 'Nhân sự')}</span>
+              </div>
+              {originalAppUser?.isAdmin && (
+                <div className="ml-2 relative group flex items-center justify-center">
+                  <Select value={originalAppUser.id === appUser?.id ? "self" : appUser?.id} onValueChange={(val) => {
+                    if (val === "self") impersonate(null);
+                    else impersonate(val);
+                  }}>
+                    <SelectTrigger className="h-6 w-auto border-0 bg-transparent ring-0 focus:ring-0 shadow-none px-1 text-slate-400 hover:text-white" autoFocus={false}>
+                      <Users className="w-3 h-3" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-700 text-slate-50">
+                      <SelectItem value="self" className="text-xs font-bold text-indigo-400">Trở lại chính mình</SelectItem>
+                      {users.filter(u => u.id !== originalAppUser.id).map(u => (
+                        <SelectItem key={u.id} value={u.id} className="text-xs">
+                          {u.name} - {u.isAdmin ? 'Admin' : (u.isLeader ? 'Leader' : 'Nhân sự')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <button onClick={() => setIsUserSettingsOpen(true)} className="ml-2 hover:bg-slate-800 p-1.5 rounded-full transition-colors text-slate-500 hover:text-white" title="Đổi mật khẩu">
+                <Settings className="w-3 h-3" />
+              </button>
+              <button onClick={signOut} className="hover:bg-slate-800 p-1.5 rounded-full transition-colors text-slate-500 hover:text-red-400" title="Đăng xuất">
+                <X className="w-3 h-3" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -525,22 +715,24 @@ export default function Home() {
                 {c.name} ({c.prefix})
               </button>
             ))}
-            <button 
-              onClick={() => {
-                setEditingClientId(null);
-                setNewClientName('');
-                setNewClientPrefix('');
-                setIsClientModalOpen(true);
-              }}
-              className="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest whitespace-nowrap border-2 border-dashed border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-500 transition-colors ml-2"
-            >
-              Quản lý khách hàng
-            </button>
+            {appUser?.isAdmin && (
+              <button 
+                onClick={() => {
+                  setEditingClientId(null);
+                  setNewClientName('');
+                  setNewClientPrefix('');
+                  setIsClientModalOpen(true);
+                }}
+                className="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest whitespace-nowrap border-2 border-dashed border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-500 transition-colors ml-2"
+              >
+                Quản lý khách hàng
+              </button>
+            )}
           </div>
         )}
         
         {/* Chat Input Area for "Lazy Data Entry" */}
-        {currentUserObj?.roles.includes('tp') && (
+        {appUser?.isAdmin && (
           <section className="flex flex-col">
             <div className="bg-slate-900 border-2 border-slate-800 p-6 rounded-3xl flex flex-col relative overflow-hidden">
               {activeTab === 'client' && clients.length === 0 ? (
@@ -709,14 +901,22 @@ export default function Home() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
-                  {projects.filter(p => activeTab === 'internal' ? p.projectType === 'internal' : (p.projectType === 'client' && p.clientId === activeClientId)).length === 0 ? (
+                  {projects.filter(p => {
+                    const isTabMatch = activeTab === 'internal' ? p.projectType === 'internal' : (p.projectType === 'client' && p.clientId === activeClientId);
+                    const isUserMatch = appUser?.isAdmin || Object.values(p.assignments).includes(appUser?.id);
+                    return isTabMatch && isUserMatch;
+                  }).length === 0 ? (
                     <tr>
                       <td colSpan={3 + STAGES.length} className="px-4 py-12 text-center text-slate-500 font-medium">
                         CHƯA CÓ DỰ ÁN NÀO TRONG MỤC NÀY
                       </td>
                     </tr>
                   ) : (
-                    Object.values(projects.filter(p => activeTab === 'internal' ? p.projectType === 'internal' : (p.projectType === 'client' && p.clientId === activeClientId)).reduce((acc, p) => {
+                    Object.values(projects.filter(p => {
+                      const isTabMatch = activeTab === 'internal' ? p.projectType === 'internal' : (p.projectType === 'client' && p.clientId === activeClientId);
+                      const isUserMatch = appUser?.isAdmin || Object.values(p.assignments).includes(appUser?.id);
+                      return isTabMatch && isUserMatch;
+                    }).reduce((acc, p) => {
                         const baseCode = p.code.includes('_') ? p.code.substring(p.code.indexOf('_') + 1) : p.code;
                         if (!acc[baseCode]) acc[baseCode] = [];
                         acc[baseCode].push(p);
@@ -727,7 +927,8 @@ export default function Home() {
                           group={group}
                           STAGES={STAGES}
                           users={users}
-                          currentUser={currentUser}
+                          currentUser={appUser?.id}
+                          appUser={appUser}
                           removeProject={removeProject}
                           setEditingProject={setEditingProject}
                           assignUser={assignUser}
@@ -811,6 +1012,145 @@ export default function Home() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    {/* Report Modal */}
+      <Dialog open={isReportModalOpen} onOpenChange={(open) => { setIsReportModalOpen(open); if(!open) setReportSelectedUser(null); }}>
+        <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto bg-slate-900 border-slate-800 text-slate-50 p-6">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-white flex items-center gap-2">
+              <CheckCircle2 className="w-6 h-6 text-indigo-500" />
+              BÁO CÁO & HIỆU SUẤT NHÂN SỰ
+            </DialogTitle>
+          </DialogHeader>
+
+          {reportSelectedUser ? (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-4 border-b border-slate-800 pb-4">
+                <button 
+                  onClick={() => setReportSelectedUser(null)}
+                  className="p-2 border border-slate-700 bg-slate-800 rounded hover:bg-slate-700 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <h3 className="text-lg font-bold">Lịch sử hoạt động: {users.find(u => u.id === reportSelectedUser)?.name} (Tháng {new Date().getMonth() + 1})</h3>
+              </div>
+              <div className="flex flex-col gap-2">
+                {(() => {
+                  const evts = historyEvents.filter(e => e.userId === reportSelectedUser && new Date(e.timestamp).getMonth() === new Date().getMonth()).sort((a,b) => b.timestamp - a.timestamp);
+                  if (evts.length === 0) return <p className="text-slate-400 text-sm italic">Không có dữ liệu trong tháng này.</p>;
+                  return evts.map(e => {
+                    const p = projects.find(proj => proj.id === e.projectId);
+                    return (
+                       <div key={e.id} className="flex flex-col gap-1 p-3 bg-slate-950 rounded border border-slate-800/50 text-sm shadow-sm">
+                         <span className="font-mono text-xs text-slate-500 flex items-center gap-1"><Clock className="w-3 h-3" /> {format(new Date(e.timestamp), 'dd/MM/yyyy HH:mm:ss')}</span>
+                         <span className="font-bold">
+                           <span className={e.action === 'accept' ? 'text-green-400 uppercase tracking-widest text-[10px] bg-green-500/10 px-2 py-0.5 rounded' : 'text-red-400 uppercase tracking-widest text-[10px] bg-red-500/10 px-2 py-0.5 rounded'}>{e.action === 'accept' ? 'Nhận Job' : 'Từ chối'}</span>
+                           <span className="ml-2 text-slate-200">{p?.originalName || p?.code || 'Dự án đã xoá'}</span> 
+                           <span className="ml-2 text-slate-400 font-medium whitespace-nowrap">(Khâu: {getStageLabel(e.stage as Stage)})</span>
+                         </span>
+                       </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          ) : (
+             <div className="flex flex-col gap-4 mt-2">
+               <div className="overflow-x-auto rounded-xl border border-slate-800/50">
+                 <table className="w-full text-left text-sm border-collapse bg-slate-900/50">
+                   <thead>
+                     <tr className="bg-slate-950/80 text-slate-400 uppercase text-[10px] tracking-widest leading-none">
+                       <th className="p-4 font-bold border-b border-slate-800">Nhân sự</th>
+                       <th className="p-4 font-bold border-b border-slate-800">Trạng thái công việc</th>
+                       <th className="p-4 font-bold border-b border-slate-800 text-center">Đã nhận (Tháng)</th>
+                       <th className="p-4 font-bold border-b border-slate-800 text-center">Từ chối (Tháng)</th>
+                       <th className="p-4 font-bold border-b border-slate-800 text-right">Hành động</th>
+                     </tr>
+                   </thead>
+                   <tbody>
+                     {users.map(u => {
+                       const currentMonth = new Date().getMonth();
+                       const currentYear = new Date().getFullYear();
+
+                       const activeJobs = projects.filter(p => {
+                         return Object.entries(p.assignments).some(([stage, id]) => {
+                           if (id !== u.id) return false;
+                           const status = p.statuses[stage as Stage];
+                           return status === 'pending' || status === 'in_progress' || status === 'waiting';
+                         });
+                       });
+
+                       const idle = activeJobs.length === 0;
+
+                       const userEvents = historyEvents.filter(e => {
+                         if (e.userId !== u.id) return false;
+                         const d = new Date(e.timestamp);
+                         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+                       });
+                       
+                       const accCount = userEvents.filter(e => e.action === 'accept').length;
+                       const rejCount = userEvents.filter(e => e.action === 'reject').length;
+
+                       return (
+                         <tr key={u.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
+                           <td className="p-4 font-medium align-top">
+                             <div className="flex flex-col">
+                               <span className="text-slate-100 font-bold">{u.name} {u.isAdmin && <span className="ml-2 text-[8px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded uppercase tracking-widest">Admin</span>}</span>
+                               <span className="text-[9px] text-slate-500 font-mono mt-1 uppercase tracking-wider">{u.roles.map(r => getStageLabel(r)).join(', ')}</span>
+                             </div>
+                           </td>
+                           <td className="p-4 align-top">
+                              {idle ? (
+                                <span className="inline-block px-2 py-1 rounded bg-slate-800 text-amber-400 border border-amber-500/20 text-[10px] font-bold uppercase tracking-widest shadow-sm">
+                                  Nhàn rỗi
+                                </span>
+                              ) : (
+                                <div className="flex flex-col gap-2">
+                                  {activeJobs.map(aj => {
+                                    const doingStagePair = Object.entries(aj.assignments).find(([s, id]) => id === u.id);
+                                    if (doingStagePair) {
+                                      const doingStage = doingStagePair[0];
+                                      const status = aj.statuses[doingStage as Stage];
+                                      return (
+                                        <div key={aj.id} className="text-xs font-medium flex flex-col gap-0.5 bg-slate-950 p-2 rounded border border-slate-800">
+                                          <span className="text-blue-300 truncate max-w-[200px]" title={aj.originalName}>{aj.originalName}</span>
+                                          <div className="flex items-center gap-1.5 mt-0.5">
+                                            <span className="text-[9px] uppercase tracking-widest text-slate-500">{getStageLabel(doingStage as Stage)}</span>
+                                            <span className="w-1 h-1 rounded-full bg-slate-700"></span>
+                                            <span className={`text-[9px] uppercase tracking-widest font-black ${status === 'in_progress' ? 'text-indigo-400' : 'text-amber-400'}`}>{status === 'in_progress' ? 'Đang làm' : (status === 'waiting' ? 'Đang đợi' : 'Chưa nhận')}</span>
+                                          </div>
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  })}
+                                </div>
+                              )}
+                           </td>
+                           <td className="p-4 text-center align-top">
+                              <span className="inline-flex items-center justify-center min-w-8 h-8 rounded-full bg-green-500/10 text-green-400 font-black border border-green-500/20">{accCount}</span>
+                           </td>
+                           <td className="p-4 text-center align-top">
+                              <span className="inline-flex items-center justify-center min-w-8 h-8 rounded-full bg-red-500/10 text-red-400 font-black border border-red-500/20">{rejCount}</span>
+                           </td>
+                           <td className="p-4 text-right align-top">
+                             <button
+                               onClick={() => setReportSelectedUser(u.id)}
+                               className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest rounded bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500 hover:text-white transition-colors border border-indigo-500/30 flex items-center gap-1.5 ml-auto whitespace-nowrap whitespace-nowrap"
+                             >
+                               Chi tiết
+                             </button>
+                           </td>
+                         </tr>
+                       );
+                     })}
+                   </tbody>
+                 </table>
+               </div>
+             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Staff Management Dialog */}
       <Dialog open={isStaffModalOpen} onOpenChange={setIsStaffModalOpen}>
         <DialogContent className="sm:max-w-2xl bg-slate-900 border-slate-800 text-slate-50">
@@ -825,7 +1165,11 @@ export default function Home() {
               {users.map(u => (
                 <div key={u.id} className="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800">
                   <div className="flex flex-col">
-                    <span className="font-bold text-sm text-slate-100">{u.name}</span>
+                    <span className="font-bold text-sm text-slate-100">
+                      {u.name}
+                      {u.isAdmin && <span className="ml-2 text-[9px] bg-indigo-500/20 text-indigo-400 px-1.5 py-0.5 rounded uppercase font-bold tracking-widest border border-indigo-500/30">Admin</span>}
+                      {u.isLeader && !u.isAdmin && <span className="ml-2 text-[9px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded uppercase font-bold tracking-widest border border-blue-500/30">Leader</span>}
+                    </span>
                     <span className="text-[10px] font-mono text-slate-500 uppercase mt-1">
                       {u.roles.map(r => getStageLabel(r)).concat(u.customTitle ? u.customTitle.split(', ') : []).join(' • ')}
                     </span>
@@ -834,8 +1178,10 @@ export default function Home() {
                     <button onClick={() => {
                         setEditingStaffId(u.id);
                         setNewStaffName(u.name);
+                        setNewStaffEmail(u.email || '');
                         setNewStaffTitles(u.customTitle ? u.customTitle.split(', ') : []);
                         setNewStaffRoles(u.roles);
+                        setNewStaffRoleType(u.isAdmin ? 'admin' : (u.isLeader ? 'leader' : 'user'));
                     }} className="w-16 h-8 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center hover:bg-blue-500 hover:text-white transition-colors text-xs font-bold">
                       SỬA
                     </button>
@@ -852,12 +1198,44 @@ export default function Home() {
                 {editingStaffId ? 'Cập nhật nhân sự' : 'Thêm nhân sự mới'}
               </h3>
               <div className="flex flex-col gap-4">
-                <Input 
-                  placeholder="Tên nhân viên..." 
-                  value={newStaffName}
-                  onChange={e => setNewStaffName(e.target.value)}
-                  className="bg-slate-950 border-slate-700 text-sm focus-visible:ring-blue-500 w-full"
-                />
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Tên nhân viên..." 
+                    value={newStaffName}
+                    onChange={e => setNewStaffName(e.target.value)}
+                    className="flex-1 bg-slate-950 border-slate-700 text-sm focus-visible:ring-indigo-500 h-11"
+                  />
+                  <Input 
+                    placeholder="Email (@gmail.com)..." 
+                    value={newStaffEmail}
+                    onChange={e => setNewStaffEmail(e.target.value)}
+                    className="flex-1 bg-slate-950 border-slate-700 text-sm focus-visible:ring-indigo-500 h-11"
+                    type="email"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  {!editingStaffId ? (
+                    <Input 
+                      placeholder="Mật khẩu khởi tạo..." 
+                      value={newStaffPass}
+                      onChange={e => setNewStaffPass(e.target.value)}
+                      className="flex-1 bg-slate-950 border-slate-700 text-sm focus-visible:ring-indigo-500 h-11"
+                      type="text"
+                    />
+                  ) : (
+                    <div className="flex-1"></div>
+                  )}
+                  <Select value={newStaffRoleType} onValueChange={(v) => { if (v) setNewStaffRoleType(v as any); }}>
+                    <SelectTrigger className="w-48 bg-slate-950 border-slate-700 text-sm h-11">
+                      <SelectValue placeholder="Chức vụ" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                      <SelectItem value="user">Nhân sự thường</SelectItem>
+                      <SelectItem value="leader">Leader (trưởng nhóm)</SelectItem>
+                      <SelectItem value="admin">Admin (quản trị)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="flex flex-col gap-2">
@@ -1006,9 +1384,12 @@ export default function Home() {
                     onClick={() => {
                       setEditingStaffId(null);
                       setNewStaffName('');
+                      setNewStaffEmail('');
+                      setNewStaffPass('');
                       setNewStaffTitleInput('');
                       setNewStaffTitles([]);
                       setNewStaffRoles([]);
+                      setNewStaffRoleType('user');
                     }}
                     className="px-4 py-3 border border-slate-700 text-slate-300 text-xs font-bold uppercase rounded-lg hover:bg-slate-800" 
                   >
@@ -1018,26 +1399,51 @@ export default function Home() {
                 <button 
                   onClick={() => {
                     if (newStaffName.trim() && (newStaffRoles.length > 0 || newStaffTitles.length > 0)) {
+                      const isAdmin = newStaffRoleType === 'admin';
+                      const isLeader = newStaffRoleType === 'leader';
+                      
                       if (editingStaffId) {
                         updateUser(editingStaffId, {
                           name: newStaffName.trim(), 
+                          email: newStaffEmail.trim(),
                           customTitle: newStaffTitles.length > 0 ? newStaffTitles.join(', ') : undefined,
-                          roles: newStaffRoles 
+                          roles: newStaffRoles,
+                          isAdmin,
+                          isLeader
                         });
                         toast.success('Đã cập nhật nhân sự!');
                         setEditingStaffId(null);
+                        setNewStaffName('');
+                        setNewStaffEmail('');
+                        setNewStaffTitleInput('');
+                        setNewStaffTitles([]);
+                        setNewStaffRoles([]);
+                        setNewStaffRoleType('user');
                       } else {
-                        addUser({ 
+                        if (!newStaffPass.trim()) {
+                           toast.error('Vui lòng nhập mật khẩu khởi tạo!');
+                           return;
+                        }
+                        const newId = `u${Date.now()}`;
+                        addUser({
+                          id: newId,
                           name: newStaffName.trim(), 
+                          email: newStaffEmail.trim(),
+                          password: newStaffPass.trim(),
                           customTitle: newStaffTitles.length > 0 ? newStaffTitles.join(', ') : undefined,
-                          roles: newStaffRoles 
+                          roles: newStaffRoles,
+                          isAdmin,
+                          isLeader
                         });
-                        toast.success('Đã thêm nhân sự!');
+                        toast.success(`Đã thêm nhân sự! Email: ${newStaffEmail.trim()} / Mật khẩu: ${newStaffPass.trim()}`, { duration: 5000 });
+                        setNewStaffName('');
+                        setNewStaffEmail('');
+                        setNewStaffPass('');
+                        setNewStaffTitleInput('');
+                        setNewStaffTitles([]);
+                        setNewStaffRoles([]);
+                        setNewStaffRoleType('user');
                       }
-                      setNewStaffName('');
-                      setNewStaffTitleInput('');
-                      setNewStaffTitles([]);
-                      setNewStaffRoles([]);
                     } else {
                       toast.error('Vui lòng nhập tên và chọn ít nhất 1 quyền!');
                     }
@@ -1052,6 +1458,49 @@ export default function Home() {
         </DialogContent>
       </Dialog>
       
+      {/* User Settings Dialog */}
+      <Dialog open={isUserSettingsOpen} onOpenChange={(open) => {
+        setIsUserSettingsOpen(open);
+        if (!open) setUserSettingsPass('');
+      }}>
+        <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-slate-50">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black uppercase tracking-tighter text-white flex items-center gap-2">
+              <Settings className="w-5 h-5 text-indigo-500" />
+              Tài Khoản
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-4">
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs text-slate-400 font-bold uppercase tracking-widest">Đổi mật khẩu mới</Label>
+              <Input 
+                type="text"
+                placeholder="Nhập mật khẩu mới..."
+                value={userSettingsPass}
+                onChange={e => setUserSettingsPass(e.target.value)}
+                className="bg-slate-950 border-slate-700 focus-visible:ring-indigo-500"
+              />
+            </div>
+            <button 
+              onClick={() => {
+                if (!appUser?.id) return;
+                if (!userSettingsPass.trim()) {
+                  toast.error("Vui lòng nhập mật khẩu mới");
+                  return;
+                }
+                updateUser(appUser.id, { password: userSettingsPass.trim() });
+                toast.success('Đã cập nhật mật khẩu!');
+                setIsUserSettingsOpen(false);
+                setUserSettingsPass('');
+              }}
+              className="mt-2 w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold uppercase text-xs tracking-widest py-3 border border-indigo-500 rounded-lg transition-colors"
+            >
+              LƯU MẬT KHẨU
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Client Management Dialog */}
       <Dialog open={isClientModalOpen} onOpenChange={setIsClientModalOpen}>
         <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-slate-50">
