@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
-import { Bot, Send, User as UserIcon, LinkIcon, Upload, CheckCircle2, CircleDashed, Clock, FileType2, Download, Users, X, Bell, Plus, Settings } from 'lucide-react';
+import { Bot, Send, User as UserIcon, LinkIcon, Upload, CheckCircle2, CircleDashed, Clock, FileType2, Download, Users, X, Bell, Plus, Settings, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { GoogleGenAI, Type } from "@google/genai";
 import Papa from 'papaparse';
@@ -26,6 +26,7 @@ export default function Home() {
   
   const [chatMessage, setChatMessage] = useState('');
   const [isParsing, setIsParsing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   
   const [selectedTask, setSelectedTask] = useState<{ projectId: string, stage: Stage } | null>(null);
@@ -780,7 +781,7 @@ export default function Home() {
 
         {/* Dashboard Data Table */}
         <section className="flex flex-col gap-6 overflow-hidden flex-1">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             {activeTab === 'internal' ? (
               <h2 className="text-xl font-bold uppercase tracking-widest text-blue-100">Dự Án Nội Bộ Đang Chạy</h2>
             ) : (
@@ -788,11 +789,27 @@ export default function Home() {
                 Dự Án Khách Hàng <span className="text-indigo-400">›</span> {clients.find(c => c.id === activeClientId)?.name || '...'}
               </h2>
             )}
-            <div className="flex gap-4">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full md:w-auto">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Input 
+                  placeholder="Tìm theo tên gốc, tên dịch, mã..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 bg-slate-900 border-slate-800 shadow-inner h-9 text-xs md:w-[300px] text-slate-200 placeholder:text-slate-600 focus-visible:ring-blue-500"
+                />
+              </div>
+              <div className="flex items-center gap-2 border border-slate-800 bg-slate-900/50 px-3 py-2 rounded-full hidden sm:flex h-9">
                 <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                 <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-                  {projects.filter(p => activeTab === 'internal' ? p.projectType === 'internal' : (p.projectType === 'client' && p.clientId === activeClientId)).length} DỰ ÁN
+                  {projects.filter(p => {
+                    const isTabMatch = activeTab === 'internal' ? p.projectType === 'internal' : (p.projectType === 'client' && p.clientId === activeClientId);
+                    const isSearchMatch = !searchQuery.trim() || 
+                      p.originalName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                      (p.translatedName && p.translatedName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                      p.code.toLowerCase().includes(searchQuery.toLowerCase());
+                    return isTabMatch && isSearchMatch;
+                  }).length} DỰ ÁN
                 </span>
               </div>
             </div>
@@ -903,8 +920,12 @@ export default function Home() {
                 <tbody className="divide-y divide-slate-800/50">
                   {projects.filter(p => {
                     const isTabMatch = activeTab === 'internal' ? p.projectType === 'internal' : (p.projectType === 'client' && p.clientId === activeClientId);
-                    const isUserMatch = appUser?.isAdmin || Object.values(p.assignments).includes(appUser?.id);
-                    return isTabMatch && isUserMatch;
+                    const isUserMatch = appUser?.isAdmin || appUser?.isLeader || Object.values(p.assignments).includes(appUser?.id);
+                    const isSearchMatch = !searchQuery.trim() || 
+                      p.originalName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                      (p.translatedName && p.translatedName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                      p.code.toLowerCase().includes(searchQuery.toLowerCase());
+                    return isTabMatch && isUserMatch && isSearchMatch;
                   }).length === 0 ? (
                     <tr>
                       <td colSpan={3 + STAGES.length} className="px-4 py-12 text-center text-slate-500 font-medium">
@@ -914,8 +935,12 @@ export default function Home() {
                   ) : (
                     Object.values(projects.filter(p => {
                       const isTabMatch = activeTab === 'internal' ? p.projectType === 'internal' : (p.projectType === 'client' && p.clientId === activeClientId);
-                      const isUserMatch = appUser?.isAdmin || Object.values(p.assignments).includes(appUser?.id);
-                      return isTabMatch && isUserMatch;
+                      const isUserMatch = appUser?.isAdmin || appUser?.isLeader || Object.values(p.assignments).includes(appUser?.id);
+                      const isSearchMatch = !searchQuery.trim() || 
+                        p.originalName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                        (p.translatedName && p.translatedName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                        p.code.toLowerCase().includes(searchQuery.toLowerCase());
+                      return isTabMatch && isUserMatch && isSearchMatch;
                     }).reduce((acc, p) => {
                         const baseCode = p.code.includes('_') ? p.code.substring(p.code.indexOf('_') + 1) : p.code;
                         if (!acc[baseCode]) acc[baseCode] = [];
