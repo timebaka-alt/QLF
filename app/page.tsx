@@ -29,8 +29,18 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   
-  const [selectedTask, setSelectedTask] = useState<{ projectId: string, stage: Stage } | null>(null);
+  const [selectedTask, setSelectedTask] = useState<{ projectId: string, stage: Stage, presetUrl?: string } | null>(null);
   const [fileUrlInput, setFileUrlInput] = useState('');
+
+  const handleOpenTask = (taskInfo: { projectId: string, stage: Stage, presetUrl?: string }) => {
+    setSelectedTask(taskInfo);
+    if (taskInfo.presetUrl) {
+      setFileUrlInput(taskInfo.presetUrl);
+    } else {
+      setFileUrlInput('');
+    }
+  };
+  
   const [activeTab, setActiveTab] = useState<'internal' | 'client'>('internal');
   const [activeClientId, setActiveClientId] = useState<string>('');
   
@@ -960,7 +970,7 @@ export default function Home() {
                           getStageLabel={getStageLabel}
                           getStatusBadge={getStatusBadge}
                           getStageSLA={getStageSLA}
-                          setSelectedTask={setSelectedTask}
+                          setSelectedTask={handleOpenTask}
                           acceptTask={acceptTask}
                           rejectTask={rejectTask}
                         />
@@ -983,7 +993,7 @@ export default function Home() {
       <Dialog open={!!selectedTask} onOpenChange={(open) => !open && setSelectedTask(null)}>
         <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-slate-50">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-white">NỘP BÀI</DialogTitle>
+            <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-white">{selectedTask?.presetUrl ? 'SỬA LINK / FILE' : 'NỘP BÀI'}</DialogTitle>
             <DialogDescription className="text-slate-400 text-xs font-semibold tracking-wide uppercase">
               Bạn đang hoàn tất khâu <strong className="text-blue-400">{selectedTask && getStageLabel(selectedTask.stage)}</strong>. Vui lòng đính kèm link thành phẩm.
             </DialogDescription>
@@ -992,33 +1002,33 @@ export default function Home() {
             <div className="space-y-2">
               <Label htmlFor="link" className="text-xs font-bold uppercase text-slate-300">Link Thành Phẩm hoặc Tải file</Label>
               <div className="flex gap-2">
-                <Input 
+                <textarea 
                   id="link" 
-                  placeholder="https://..." 
+                  placeholder="https://... (Mỗi link 1 dòng)" 
                   value={fileUrlInput}
                   onChange={(e) => setFileUrlInput(e.target.value)}
-                  className="bg-slate-950 border-slate-800 font-mono text-xs text-blue-300 focus-visible:ring-blue-500 h-10 flex-1"
+                  className="bg-slate-950 border border-slate-800 font-mono text-xs text-blue-300 focus-visible:ring-blue-500 h-24 p-2 rounded-md flex-1 resize-none w-full"
                 />
                 <Button 
                   type="button" 
                   variant="outline" 
-                  className="h-10 text-xs border-slate-800 bg-slate-900 border-dashed hover:bg-slate-800"
+                  className="h-24 w-24 flex-col text-xs border-slate-800 bg-slate-900 border-dashed hover:bg-slate-800"
                   onClick={() => document.getElementById('mockUpload')?.click()}
                 >
-                  <Upload className="w-4 h-4 mr-2 text-slate-400" />
+                  <Upload className="w-5 h-5 mb-2 text-slate-400" />
                   <span className="text-slate-400">Tải lên</span>
                 </Button>
                 <input 
                   id="mockUpload" 
                   type="file" 
                   className="hidden" 
+                  multiple
                   onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      // Tạo link local object url để có thể xem lại file vừa upload
-                      const objectUrl = URL.createObjectURL(file);
-                      setFileUrlInput(objectUrl);
-                      toast.success(`Đã tải lên tệp: ${file.name} thành công.`);
+                    const files = Array.from(e.target.files || []);
+                    if (files.length > 0) {
+                      const objectUrls = files.map(f => URL.createObjectURL(f)).join('\n');
+                      setFileUrlInput(prev => prev ? prev + '\n' + objectUrls : objectUrls);
+                      toast.success(`Đã tải lên ${files.length} tệp.`);
                     }
                   }}
                 />

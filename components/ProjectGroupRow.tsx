@@ -49,11 +49,11 @@ export function ProjectGroupRow({
             <img src={p.posterUrl || group[0].posterUrl} alt="Poster" className="w-14 h-20 sm:w-16 sm:h-24 object-cover rounded shadow-md border border-slate-800 shrink-0" referrerPolicy="no-referrer" />
           )}
           <div className="flex-1 min-w-0">
-            <div className="text-[10px] text-blue-400 font-mono mb-1 inline-flex p-1 px-2 border border-blue-900/50 bg-blue-950/30 rounded">
+            <div className="text-[13px] text-blue-400 font-bold font-mono mb-1 inline-flex p-1 px-2 border border-blue-900/50 bg-blue-950/30 rounded tracking-wider shadow-inner shadow-blue-500/10">
               #{p.block ? `${p.block}-` : ''}{baseCode}
             </div>
-            <div className="font-bold text-slate-50 mt-1 break-words line-clamp-3 leading-snug" title={p.translatedName}>{p.translatedName}</div>
-            <div className="text-[10px] text-slate-400 italic line-clamp-2 mt-1">{p.originalName}</div>
+            <div className="font-semibold text-[13px] text-slate-300 mt-1 break-words line-clamp-3 leading-snug" title={p.translatedName}>{p.translatedName}</div>
+            <div className="text-[10px] text-slate-500 italic line-clamp-2 mt-1">{p.originalName}</div>
           </div>
         </div>
         
@@ -178,17 +178,17 @@ export function ProjectGroupRow({
               <div className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-bl-lg animate-pulse" />
             )}
             <div className="flex flex-col items-center gap-2 w-full mt-2">
-              <div className="flex items-center gap-1.5 bg-slate-950/50 px-2 py-1 rounded-full border border-slate-800/80 w-full max-w-[120px] relative justify-center group cursor-pointer hover:bg-slate-900 transition-colors">
+              <div className="flex items-center gap-1.5 bg-slate-950/50 px-2 py-1 rounded-full border border-slate-800/80 w-full relative justify-center group cursor-pointer hover:bg-slate-900 transition-colors">
                 <Select 
                   value={p.assignments[stage] || 'unassigned'} 
                   onValueChange={(val) => assignUser(p.id, stage, val || 'unassigned')}
                   disabled={!(appUser?.isAdmin || appUser?.isLeader)}
                 >
-                  <SelectTrigger className="h-6 w-full text-[10px] bg-transparent border-0 ring-offset-transparent focus:ring-0 p-0 text-slate-300 font-bold uppercase tracking-tighter flex justify-center gap-1 items-center shadow-none data-[placeholder]:text-slate-500">
+                  <SelectTrigger className="h-6 w-full text-[9px] sm:text-[10px] bg-transparent border-0 ring-offset-transparent focus:ring-0 p-0 text-slate-300 font-bold uppercase tracking-tighter flex justify-center gap-1 items-center shadow-none data-[placeholder]:text-slate-500">
                     <div className="w-4 h-4 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-[7px] text-indigo-300 shrink-0">
                       {assignedUser ? assignedUser.name.substring(0, 1).toUpperCase() : '?'}
                     </div>
-                    <span className="truncate max-w-[60px]">{assignedUser?.name || 'CHƯA GIAO'}</span>
+                    <span className="truncate flex-1 min-w-0" title={assignedUser?.name || 'CHƯA GIAO'}>{assignedUser?.name || 'CHƯA GIAO'}</span>
                   </SelectTrigger>
                   <SelectContent className="bg-slate-900 border-slate-800 text-slate-50">
                     <SelectItem value="unassigned" className="text-[10px] text-slate-500 font-bold">Chưa giao</SelectItem>
@@ -208,9 +208,23 @@ export function ProjectGroupRow({
               </div>
               
               {status === 'done' && p.files[stage] && (
-                <a href={p.files[stage]} target="_blank" rel="noreferrer" className="text-[9px] font-bold text-emerald-400 underline decoration-2 underline-offset-4 uppercase tracking-tighter hover:text-emerald-300 mt-1">
-                  Xem File
-                </a>
+                <div className="flex flex-col gap-1 mt-1 w-full items-center">
+                  {(p.files[stage] as string).split('\n').map((url, idx) => (
+                    url.trim() ? (
+                      <a key={idx} href={url.trim()} target="_blank" rel="noreferrer" className="text-[9px] font-bold text-emerald-400 underline decoration-2 underline-offset-4 uppercase tracking-tighter hover:text-emerald-300 truncate w-full text-center">
+                        Xem File {idx + 1}
+                      </a>
+                    ) : null
+                  ))}
+                  {(isAssigned || appUser?.isAdmin || appUser?.isLeader) && (
+                    <button 
+                      onClick={() => setSelectedTask({ projectId: p.id, stage, presetUrl: p.files[stage] })}
+                      className="text-[9px] text-slate-500 hover:text-slate-300 flex items-center gap-1 mt-1"
+                    >
+                      <Pencil className="w-3 h-3" /> Sửa file
+                    </button>
+                  )}
+                </div>
               )}
               
               <div className="mt-2 w-full">
